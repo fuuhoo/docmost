@@ -126,6 +126,34 @@ export class UserRepo {
       .executeTakeFirst();
   }
 
+  async createUser(
+    data: {
+      email: string;
+      name: string;
+      workspaceId: string;
+      role: string;
+    },
+    trx?: KyselyTransaction,
+  ): Promise<User> {
+    const user: InsertableUser = {
+      name: data.name || data.email.split('@')[0].toLowerCase(),
+      email: data.email.toLowerCase(),
+      password: null, // No password for SSO users
+      locale: 'en-US',
+      role: data.role,
+      workspaceId: data.workspaceId,
+      lastLoginAt: new Date(),
+      hasGeneratedPassword: false,
+    };
+
+    const db = dbOrTx(this.db, trx);
+    return db
+      .insertInto('users')
+      .values(user)
+      .returning(this.baseFields)
+      .executeTakeFirst();
+  }
+
   async roleCountByWorkspaceId(
     role: string,
     workspaceId: string,

@@ -19,28 +19,33 @@ import SsoCloudSignup from "@/ee/components/sso-cloud-signup.tsx";
 import { isCloud } from "@/lib/config.ts";
 import { Link } from "react-router-dom";
 import APP_ROUTE from "@/lib/app-route.ts";
-
-const formSchema = z.object({
-  workspaceName: z.string().trim().max(50).optional(),
-  name: z.string().min(1).max(50),
-  email: z
-    .string()
-    .min(1, { message: "email is required" })
-    .email({ message: "Invalid email address" }),
-  password: z.string().min(8),
-});
+import { useAtom } from "jotai";
+import { currentUserAtom } from "@/features/user/atoms/current-user-atom.ts";
 
 export function SetupWorkspaceForm() {
   const { t } = useTranslation();
   const { setupWorkspace, isLoading } = useAuth();
+  const [currentUser] = useAtom(currentUserAtom);
+  const user = currentUser?.user;
   // useRedirectIfAuthenticated();
+
+  // Form schema requires all fields for all users
+  const formSchema = z.object({
+    workspaceName: z.string().trim().max(50).optional(),
+    name: z.string().min(1).max(50),
+    email: z
+      .string()
+      .min(1, { message: "email is required" })
+      .email({ message: "Invalid email address" }),
+    password: z.string().min(8),
+  });
 
   const form = useForm<ISetupWorkspace>({
     validate: zodResolver(formSchema),
     initialValues: {
       workspaceName: "",
-      name: "",
-      email: "",
+      name: user?.name || "",
+      email: user?.email || "",
       password: "",
     },
   });
@@ -99,6 +104,7 @@ export function SetupWorkspaceForm() {
               mt="md"
               {...form.getInputProps("password")}
             />
+
             <Button type="submit" fullWidth mt="xl" loading={isLoading}>
               {t("Create workspace")}
             </Button>

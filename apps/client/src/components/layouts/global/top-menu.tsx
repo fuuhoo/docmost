@@ -13,6 +13,7 @@ import {
   IconDeviceDesktop,
   IconLogout,
   IconMoon,
+  IconPlus,
   IconSettings,
   IconSun,
   IconUserCircle,

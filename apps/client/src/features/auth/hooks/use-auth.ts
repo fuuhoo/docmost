@@ -33,7 +33,7 @@ export default function useAuth() {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const [, setCurrentUser] = useAtom(currentUserAtom);
+  const [currentUser, setCurrentUser] = useAtom(currentUserAtom);
 
   const handleSignIn = async (data: ILogin) => {
     setIsLoading(true);
@@ -101,9 +101,23 @@ export default function useAuth() {
           );
         }
       } else {
-        const res = await setupWorkspace(data);
-        setIsLoading(false);
-        navigate(APP_ROUTE.HOME);
+        // Check if user is already logged in
+        if (currentUser?.user) {
+          // Use existing user to create workspace
+          const res = await createWorkspace({
+            workspaceName: data.workspaceName,
+            name: currentUser.user.name,
+            email: currentUser.user.email,
+            password: data.password, // Password might not be needed but include for compatibility
+          });
+          setIsLoading(false);
+          navigate(APP_ROUTE.HOME);
+        } else {
+          // New user setup
+          const res = await setupWorkspace(data);
+          setIsLoading(false);
+          navigate(APP_ROUTE.HOME);
+        }
       }
     } catch (err) {
       setIsLoading(false);

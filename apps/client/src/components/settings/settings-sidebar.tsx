@@ -93,10 +93,6 @@ const groupedData: DataGroup[] = [
         label: "Security & SSO",
         icon: IconLock,
         path: "/settings/security",
-        isCloud: true,
-        isEnterprise: true,
-        isAdmin: true,
-        showDisabledInNonEE: true,
       },
       { label: "Groups", icon: IconUsersGroup, path: "/settings/groups" },
       { label: "Spaces", icon: IconSpaces, path: "/settings/spaces" },
@@ -146,32 +142,6 @@ export default function SettingsSidebar() {
   }, [location.pathname]);
 
   const canShowItem = (item: DataItem) => {
-    if (item.showDisabledInNonEE && item.isEnterprise) {
-      // Check admin permission regardless of license
-      return item.isAdmin ? isAdmin : true;
-    }
-
-    if (item.isCloud && item.isEnterprise) {
-      if (!(isCloud() || workspace?.hasLicenseKey)) return false;
-      return item.isAdmin ? isAdmin : true;
-    }
-
-    if (item.isCloud) {
-      return isCloud() ? (item.isAdmin ? isAdmin : true) : false;
-    }
-
-    if (item.isSelfhosted) {
-      return !isCloud() ? (item.isAdmin ? isAdmin : true) : false;
-    }
-
-    if (item.isEnterprise) {
-      return workspace?.hasLicenseKey ? (item.isAdmin ? isAdmin : true) : false;
-    }
-
-    if (item.isAdmin) {
-      return isAdmin;
-    }
-
     return true;
   };
 

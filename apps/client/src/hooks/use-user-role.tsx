@@ -7,11 +7,15 @@ export const useUserRole = () => {
 
   const isAdmin =
     currentUser?.user?.role === UserRole.ADMIN ||
-    currentUser?.user?.role === UserRole.OWNER;
+    currentUser?.user?.role === UserRole.OWNER ||
+    currentUser?.user?.role === "admin" ||
+    currentUser?.user?.role === "owner";
 
-  const isOwner = currentUser?.user?.role === UserRole.OWNER;
+  const isOwner = currentUser?.user?.role === UserRole.OWNER ||
+    currentUser?.user?.role === "owner";
 
-  const isMember = currentUser?.user?.role === UserRole.MEMBER;
+  const isMember = currentUser?.user?.role === UserRole.MEMBER ||
+    currentUser?.user?.role === "member";
 
   return { isAdmin, isOwner, isMember };
 };

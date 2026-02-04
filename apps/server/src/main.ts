@@ -63,7 +63,7 @@ async function bootstrap() {
         '/api/health',
         '/api/billing/stripe/webhook',
         '/api/workspace/check-hostname',
-        '/api/sso/google',
+        '/api/sso',
         '/api/workspace/create',
         '/api/workspace/joined',
       ];

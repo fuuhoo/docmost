@@ -19,9 +19,9 @@ export default function Security() {
   const { hasLicenseKey } = useLicense();
   const { isBusiness } = usePlan();
 
-  if (!isAdmin) {
-    return null;
-  }
+  // if (!isAdmin) {
+  //   return null;
+  // }
 
   return (
     <>
@@ -42,7 +42,7 @@ export default function Security() {
         Single sign-on (SSO)
       </Title>
 
-      {(isCloud() && isBusiness) || (!isCloud() && hasLicenseKey) ? (
+      {(!isCloud() || isBusiness) ? (
         <>
           <EnforceSso />
           <Divider my="lg" />

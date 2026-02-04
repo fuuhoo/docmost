@@ -34,6 +34,9 @@ import { FastifyReply } from 'fastify';
 import { EnvironmentService } from '../../../integrations/environment/environment.service';
 import { CheckHostnameDto } from '../dto/check-hostname.dto';
 import { RemoveWorkspaceUserDto } from '../dto/remove-workspace-user.dto';
+import { CreateWorkspaceDto } from '../dto/create-workspace.dto';
+import { TokenService } from '../../auth/services/token.service';
+import { CreateAdminUserDto } from '../../auth/dto/create-admin-user.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('workspace')
@@ -43,6 +46,7 @@ export class WorkspaceController {
     private readonly workspaceInvitationService: WorkspaceInvitationService,
     private readonly workspaceAbility: WorkspaceAbilityFactory,
     private environmentService: EnvironmentService,
+    private tokenService: TokenService,
   ) {}
 
   @Public()
@@ -312,5 +316,38 @@ export class WorkspaceController {
       );
 
     return { inviteLink };
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('create')
+  async createWorkspace(
+    @Res({ passthrough: true }) res: FastifyReply,
+    @Body() createWorkspaceDto: CreateWorkspaceDto,
+    @AuthUser() user: User,
+  ) {
+    // Create workspace with existing user as owner
+    // This will now create a new user record for the new workspace
+    const workspace = await this.workspaceService.create(user, createWorkspaceDto);
+
+    // Find the new user record that was created for this workspace
+    const newUser = await this.db
+      .selectFrom('users')
+      .select(['id', 'name', 'email', 'workspaceId'])
+      .where('workspaceId', '=', workspace.id)
+      .where('email', '=', user.email)
+      .executeTakeFirst();
+
+    // Generate auth token for the new workspace using the new user
+    const authToken = await this.tokenService.generateAccessToken(newUser, workspace.id);
+
+    // Set auth cookie
+    res.setCookie('authToken', authToken, {
+      httpOnly: true,
+      path: '/',
+      expires: this.environmentService.getCookieExpiresIn(),
+      secure: this.environmentService.isHttps(),
+    });
+
+    return { workspace, authToken };
   }
 }

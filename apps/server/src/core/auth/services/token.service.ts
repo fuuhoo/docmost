@@ -23,7 +23,7 @@ export class TokenService {
     private environmentService: EnvironmentService,
   ) {}
 
-  async generateAccessToken(user: User): Promise<string> {
+  async generateAccessToken(user: User, workspaceId?: string): Promise<string> {
     if (user.deactivatedAt || user.deletedAt) {
       throw new ForbiddenException();
     }
@@ -31,7 +31,7 @@ export class TokenService {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
-      workspaceId: user.workspaceId,
+      workspaceId: workspaceId || user.workspaceId,
       type: JwtType.ACCESS,
     };
     return this.jwtService.sign(payload);

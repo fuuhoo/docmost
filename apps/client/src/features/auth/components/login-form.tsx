@@ -105,7 +105,29 @@ export function LoginForm() {
                 {t("Sign In")}
               </Button>
             </form>
+            
+            <Button 
+              component={Link} 
+              to="/create" 
+              fullWidth 
+              mt="md"
+              variant="outline"
+            >
+              {t("Create workspace")}
+            </Button>
           </>
+        )}
+        
+        {data?.enforceSso && (
+          <Button 
+            component={Link} 
+            to="/create" 
+            fullWidth 
+            mt="md"
+            variant="outline"
+          >
+            {t("Create workspace")}
+          </Button>
         )}
       </Box>
     </Container>

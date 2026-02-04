@@ -57,28 +57,28 @@ export default function SsoLogin() {
         />
       )}
 
-      {(isCloud() || data.hasLicenseKey) && (
-        <>
-          <Stack align="stretch" justify="center" gap="sm">
-            {data.authProviders.map((provider) => (
-              <div key={provider.id}>
-                <Button
-                  onClick={() => handleSsoLogin(provider)}
-                  leftSection={getProviderIcon(provider)}
-                  variant="default"
-                  fullWidth
-                >
-                  {provider.name}
-                </Button>
-              </div>
-            ))}
-          </Stack>
+      <>
+        <Stack align="stretch" justify="center" gap="sm">
+          {data.authProviders.map((provider) => (
+            <div key={provider.id}>
+              <Button
+                onClick={() => handleSsoLogin(provider)}
+                leftSection={getProviderIcon(provider)}
+                variant="filled"
+                color="primary"
+                fullWidth
+                disabled={isLoading}
+              >
+                {isLoading ? 'Loading...' : provider.name}
+              </Button>
+            </div>
+          ))}
+        </Stack>
 
-          {!data.enforceSso && (
-            <Divider my="xs" label="OR" labelPosition="center" />
-          )}
-        </>
-      )}
+        {!data.enforceSso && (
+          <Divider my="xs" label="OR" labelPosition="center" />
+        )}
+      </>
     </>
   );
 }

@@ -147,20 +147,31 @@ export class WorkspaceService {
           trx: trx,
         });
 
-        // add user to workspace
-        await trx
-          .updateTable('users')
-          .set({
+        // Create a new user record for the new workspace instead of updating existing user
+        // This ensures the user remains in their original workspace
+        const newUser = await trx
+          .insertInto('users')
+          .values({
+            id: v4(),
+            name: user.name,
+            email: user.email,
+            password: user.password, // Reuse the same password hash
             workspaceId: workspace.id,
             role: UserRole.OWNER,
+            emailVerifiedAt: user.emailVerifiedAt,
+            createdAt: new Date(),
+            updatedAt: new Date(),
           })
-          .where('users.id', '=', user.id)
-          .execute();
+          .returning(['id'])
+          .executeTakeFirst();
+        
+        // Use the new user ID for subsequent operations
+        const userIdToUse = newUser.id;
 
         // add user to default group created above
         await this.groupUserRepo.insertGroupUser(
           {
-            userId: user.id,
+            userId: userIdToUse,
             groupId: group.id,
           },
           trx,
@@ -173,7 +184,7 @@ export class WorkspaceService {
         };
 
         const createdSpace = await this.spaceService.create(
-          user.id,
+          userIdToUse,
           workspace.id,
           spaceInfo,
           trx,
@@ -181,7 +192,7 @@ export class WorkspaceService {
 
         // and add user to space as owner
         await this.spaceMemberService.addUserToSpace(
-          user.id,
+          userIdToUse,
           createdSpace.id,
           SpaceRole.ADMIN,
           workspace.id,
