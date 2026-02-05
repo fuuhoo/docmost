@@ -113,7 +113,7 @@ export class UserRepo {
         insertableUser.name || insertableUser.email.split('@')[0].toLowerCase(),
       email: insertableUser.email.toLowerCase(),
       password: await hashPassword(insertableUser.password),
-      locale: 'en-US',
+      locale: 'zh-CN',
       role: insertableUser?.role,
       lastLoginAt: new Date(),
     };
@@ -139,7 +139,7 @@ export class UserRepo {
       name: data.name || data.email.split('@')[0].toLowerCase(),
       email: data.email.toLowerCase(),
       password: null, // No password for SSO users
-      locale: 'en-US',
+      locale: 'zh-CN',
       role: data.role,
       workspaceId: data.workspaceId,
       lastLoginAt: new Date(),

@@ -10,6 +10,7 @@ import { InjectKysely } from 'nestjs-kysely';
 import { User, Workspace } from '@docmost/db/types/entity.types';
 import { GroupUserRepo } from '@docmost/db/repos/group/group-user.repo';
 import { UserRole } from '../../../common/helpers/types/permission';
+import { EnvironmentService } from '../../../integrations/environment/environment.service';
 
 @Injectable()
 export class SignupService {
@@ -17,14 +18,30 @@ export class SignupService {
     private userRepo: UserRepo,
     private workspaceService: WorkspaceService,
     private groupUserRepo: GroupUserRepo,
+    private environmentService: EnvironmentService,
     @InjectKysely() private readonly db: KyselyDB,
   ) {}
+
+  private validateEmailDomain(email: string): void {
+    const allowedDomains = this.environmentService.getEmailAllowedDomains();
+    if (allowedDomains.length > 0) {
+      const emailDomain = email.split('@')[1];
+      if (!allowedDomains.includes(emailDomain)) {
+        throw new BadRequestException(
+          'Your email domain is not allowed to register. Please contact your administrator.',
+        );
+      }
+    }
+  }
 
   async signup(
     createUserDto: CreateUserDto,
     workspaceId: string,
     trx?: KyselyTransaction,
   ): Promise<User> {
+    // Validate email domain
+    this.validateEmailDomain(createUserDto.email);
+
     // Validate workspace exists
     const workspace = await this.db.selectFrom('workspaces').select(['id']).where('id', '=', workspaceId).executeTakeFirst();
     if (!workspace) {
@@ -79,6 +96,9 @@ export class SignupService {
     createAdminUserDto: CreateAdminUserDto,
     trx?: KyselyTransaction,
   ) {
+    // Validate email domain
+    this.validateEmailDomain(createAdminUserDto.email);
+
     let user: User,
       workspace: Workspace = null;
 

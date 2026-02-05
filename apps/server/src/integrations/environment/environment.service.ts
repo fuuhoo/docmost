@@ -277,4 +277,12 @@ export class EnvironmentService {
       'http://localhost:11434',
     );
   }
+
+  getEmailAllowedDomains(): string[] {
+    const domains = this.configService.get<string>('EMAIL_ALLOWED_DOMAINS');
+    if (!domains) {
+      return [];
+    }
+    return domains.split(',').map(domain => domain.trim());
+  }
 }

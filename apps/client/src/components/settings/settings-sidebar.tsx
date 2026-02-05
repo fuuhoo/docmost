@@ -20,7 +20,7 @@ import { useTranslation } from "react-i18next";
 import { isCloud } from "@/lib/config.ts";
 import useUserRole from "@/hooks/use-user-role.tsx";
 import { useAtom } from "jotai";
-import { workspaceAtom } from "@/features/user/atoms/current-user-atom.ts";
+import { workspaceAtom, userAtom } from "@/features/user/atoms/current-user-atom.ts";
 import {
   prefetchApiKeyManagement,
   prefetchApiKeys,
@@ -134,6 +134,7 @@ export default function SettingsSidebar() {
   const { goBack } = useSettingsNavigation();
   const { isAdmin } = useUserRole();
   const [workspace] = useAtom(workspaceAtom);
+  const [user] = useAtom(userAtom);
   const [mobileSidebarOpened] = useAtom(mobileSidebarAtom);
   const toggleMobileSidebar = useToggleSidebar(mobileSidebarAtom);
 
@@ -142,6 +143,26 @@ export default function SettingsSidebar() {
   }, [location.pathname]);
 
   const canShowItem = (item: DataItem) => {
+    // Hide License & Edition option
+    if (item.label === "License & Edition") {
+      return false;
+    }
+    
+    // Hide API keys and API management options
+    if (item.label === "API keys" || item.label === "API management") {
+      return false;
+    }
+    
+    // Hide Security & SSO option for non-owners
+    if (item.label === "Security & SSO") {
+      return user?.role === "owner";
+    }
+    
+    // Hide Billing option
+    if (item.label === "Billing") {
+      return false;
+    }
+    
     return true;
   };
 
@@ -153,7 +174,7 @@ export default function SettingsSidebar() {
   };
 
   const menuItems = groupedData.map((group) => {
-    if (group.heading === "System" && (!isAdmin || isCloud())) {
+    if (group.heading === "System") {
       return null;
     }
 
@@ -270,7 +291,7 @@ export default function SettingsSidebar() {
 
       <ScrollArea w="100%">{menuItems}</ScrollArea>
 
-      {!isCloud() && <AppVersion />}
+      {/* {!isCloud() && <AppVersion />} */}
 
       {isCloud() && (
         <div className={classes.text}>

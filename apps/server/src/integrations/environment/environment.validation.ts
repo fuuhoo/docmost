@@ -155,6 +155,10 @@ export class EnvironmentVariables {
   @ValidateIf((obj) => obj.AI_DRIVER && obj.AI_DRIVER === 'ollama')
   @IsUrl({ protocols: ['http', 'https'], require_tld: false })
   OLLAMA_API_URL: string;
+
+  @IsOptional()
+  @IsString()
+  EMAIL_ALLOWED_DOMAINS: string;
 }
 
 export function validate(config: Record<string, any>) {
