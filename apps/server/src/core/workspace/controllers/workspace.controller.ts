@@ -37,6 +37,8 @@ import { RemoveWorkspaceUserDto } from '../dto/remove-workspace-user.dto';
 import { CreateWorkspaceDto } from '../dto/create-workspace.dto';
 import { TokenService } from '../../auth/services/token.service';
 import { CreateAdminUserDto } from '../../auth/dto/create-admin-user.dto';
+import { KyselyDB } from '@docmost/db/types/kysely.types';
+import { InjectKysely } from 'nestjs-kysely';
 
 @UseGuards(JwtAuthGuard)
 @Controller('workspace')
@@ -47,6 +49,7 @@ export class WorkspaceController {
     private readonly workspaceAbility: WorkspaceAbilityFactory,
     private environmentService: EnvironmentService,
     private tokenService: TokenService,
+    @InjectKysely() private readonly db: KyselyDB,
   ) {}
 
   @Public()
@@ -332,7 +335,7 @@ export class WorkspaceController {
     // Find the new user record that was created for this workspace
     const newUser = await this.db
       .selectFrom('users')
-      .select(['id', 'name', 'email', 'workspaceId'])
+      .selectAll()
       .where('workspaceId', '=', workspace.id)
       .where('email', '=', user.email)
       .executeTakeFirst();

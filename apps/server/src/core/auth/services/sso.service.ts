@@ -156,6 +156,13 @@ export class SsoService {
       this.logger.log(`  given_name: ${userInfo.given_name}`);
       this.logger.log(`  family_name: ${userInfo.family_name}`);
       
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!userInfo.email || !emailRegex.test(userInfo.email)) {
+        this.logger.error('Invalid or missing email in OIDC user info');
+        throw new Error('OIDC authentication failed: Invalid or missing email address');
+      }
+      
     } catch (callbackError) {
       const error = callbackError as Error;
       this.logger.error('Error in OIDC token exchange or user info request:', error);

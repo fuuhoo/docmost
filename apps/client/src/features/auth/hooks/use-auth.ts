@@ -101,23 +101,10 @@ export default function useAuth() {
           );
         }
       } else {
-        // Check if user is already logged in
-        if (currentUser?.user) {
-          // Use existing user to create workspace
-          const res = await createWorkspace({
-            workspaceName: data.workspaceName,
-            name: currentUser.user.name,
-            email: currentUser.user.email,
-            password: data.password, // Password might not be needed but include for compatibility
-          });
-          setIsLoading(false);
-          navigate(APP_ROUTE.HOME);
-        } else {
-          // New user setup
-          const res = await setupWorkspace(data);
-          setIsLoading(false);
-          navigate(APP_ROUTE.HOME);
-        }
+        // New user registration
+        const res = await setupWorkspace(data);
+        setIsLoading(false);
+        navigate(APP_ROUTE.HOME);
       }
     } catch (err) {
       setIsLoading(false);

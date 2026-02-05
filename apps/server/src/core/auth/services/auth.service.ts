@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -32,6 +33,8 @@ import { DomainService } from '../../../integrations/environment/domain.service'
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private signupService: SignupService,
     private tokenService: TokenService,
@@ -67,17 +70,50 @@ export class AuthService {
     return this.tokenService.generateAccessToken(user);
   }
 
-  async register(createUserDto: CreateUserDto, workspaceId: string) {
+  async register(createUserDto: CreateUserDto, workspaceId?: string) {
+    // Find the first workspace if no workspaceId is provided
+    if (!workspaceId) {
+      const workspaces = await this.db.selectFrom('workspaces').select(['id']).execute();
+      if (workspaces.length > 0) {
+        workspaceId = workspaces[0].id;
+        this.logger.log(`Using first workspace: ${workspaceId}`);
+      } else {
+        this.logger.error('No workspace found for registration');
+        throw new BadRequestException('No workspace found. Please contact your administrator.');
+      }
+    }
+    
     const user = await this.signupService.signup(createUserDto, workspaceId);
     return this.tokenService.generateAccessToken(user);
   }
 
   async setup(createAdminUserDto: CreateAdminUserDto) {
-    const { workspace, user } =
-      await this.signupService.initialSetup(createAdminUserDto);
+    // Check if any workspace already exists
+    const existingWorkspaces = await this.db.selectFrom('workspaces').select(['id']).execute();
+    
+    if (existingWorkspaces.length > 0) {
+      // Use existing workspace for registration
+      const workspaceId = existingWorkspaces[0].id;
+      this.logger.log(`Using existing workspace for registration: ${workspaceId}`);
+      
+      // Register user to existing workspace
+      const user = await this.signupService.signup({
+        name: createAdminUserDto.name,
+        email: createAdminUserDto.email,
+        password: createAdminUserDto.password,
+      }, workspaceId);
+      
+      const authToken = await this.tokenService.generateAccessToken(user);
+      const workspace = await this.db.selectFrom('workspaces').selectAll().where('id', '=', workspaceId).executeTakeFirst();
+      return { workspace, authToken };
+    } else {
+      // First user setup - create workspace
+      const { workspace, user } = 
+        await this.signupService.initialSetup(createAdminUserDto);
 
-    const authToken = await this.tokenService.generateAccessToken(user);
-    return { workspace, authToken };
+      const authToken = await this.tokenService.generateAccessToken(user);
+      return { workspace, authToken };
+    }
   }
 
   async changePassword(

@@ -57,6 +57,11 @@ export class WorkspaceService {
     return this.workspaceRepo.findById(workspaceId);
   }
 
+  async getFirstWorkspace() {
+    const workspace = await this.db.selectFrom('workspaces').selectAll().executeTakeFirst();
+    return workspace;
+  }
+
   async getWorkspaceInfo(workspaceId: string) {
     const workspace = await this.workspaceRepo.findById(workspaceId);
     if (!workspace) {

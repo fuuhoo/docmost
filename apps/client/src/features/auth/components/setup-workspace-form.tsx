@@ -22,7 +22,11 @@ import APP_ROUTE from "@/lib/app-route.ts";
 import { useAtom } from "jotai";
 import { currentUserAtom } from "@/features/user/atoms/current-user-atom.ts";
 
-export function SetupWorkspaceForm() {
+interface SetupWorkspaceFormProps {
+  isCreateAccount?: boolean;
+}
+
+export function SetupWorkspaceForm({ isCreateAccount = false }: SetupWorkspaceFormProps) {
   const { t } = useTranslation();
   const { setupWorkspace, isLoading } = useAuth();
   const [currentUser] = useAtom(currentUserAtom);
@@ -31,7 +35,6 @@ export function SetupWorkspaceForm() {
 
   // Form schema requires all fields for all users
   const formSchema = z.object({
-    workspaceName: z.string().trim().max(50).optional(),
     name: z.string().min(1).max(50),
     email: z
       .string()
@@ -43,7 +46,6 @@ export function SetupWorkspaceForm() {
   const form = useForm<ISetupWorkspace>({
     validate: zodResolver(formSchema),
     initialValues: {
-      workspaceName: "",
       name: user?.name || "",
       email: user?.email || "",
       password: "",
@@ -59,31 +61,18 @@ export function SetupWorkspaceForm() {
       <Container size={420} className={classes.container}>
         <Box p="xl" className={classes.containerBox}>
           <Title order={2} ta="center" fw={500} mb="md">
-            {t("Create workspace")}
+            {isCreateAccount ? t("Create account") : t("Create workspace")}
           </Title>
 
           {isCloud() && <SsoCloudSignup />}
 
           <form onSubmit={form.onSubmit(onSubmit)}>
-            {!isCloud() && (
-              <TextInput
-                id="workspaceName"
-                type="text"
-                label={t("Workspace Name")}
-                placeholder={t("e.g ACME Inc")}
-                variant="filled"
-                mt="md"
-                {...form.getInputProps("workspaceName")}
-              />
-            )}
-
             <TextInput
               id="name"
               type="text"
               label={t("Your Name")}
               placeholder={t("enter your full name")}
               variant="filled"
-              mt="md"
               {...form.getInputProps("name")}
             />
 
@@ -106,7 +95,7 @@ export function SetupWorkspaceForm() {
             />
 
             <Button type="submit" fullWidth mt="xl" loading={isLoading}>
-              {t("Create workspace")}
+              {isCreateAccount ? t("Create account") : t("Create workspace")}
             </Button>
           </form>
         </Box>

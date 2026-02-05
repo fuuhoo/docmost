@@ -25,6 +25,12 @@ export class SignupService {
     workspaceId: string,
     trx?: KyselyTransaction,
   ): Promise<User> {
+    // Validate workspace exists
+    const workspace = await this.db.selectFrom('workspaces').select(['id']).where('id', '=', workspaceId).executeTakeFirst();
+    if (!workspace) {
+      throw new BadRequestException('Workspace not found');
+    }
+
     const userCheck = await this.userRepo.findByEmail(
       createUserDto.email,
       workspaceId,

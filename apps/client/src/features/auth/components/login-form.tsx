@@ -54,12 +54,22 @@ export function LoginForm() {
   }
 
   if (isDataLoading) {
-   return null;
+    return (
+      <Container size={420} className={classes.container}>
+        <Box p="xl" className={classes.containerBox}>
+          <Title order={2} ta="center" fw={500} mb="md">
+            {t("Login")}
+          </Title>
+          <div style={{ textAlign: 'center', padding: '2rem' }}>
+            {t("Loading...")}
+          </div>
+        </Box>
+      </Container>
+    );
   }
 
-  if (isError && error?.["response"]?.status === 404) {
-    return <Error404 />;
-  }
+  // If there's an error, still show the login form
+  // Don't return Error404 for API errors in login page
 
   return (
     <Container size={420} className={classes.container}>
@@ -104,30 +114,19 @@ export function LoginForm() {
               <Button type="submit" fullWidth mt="md" loading={isLoading}>
                 {t("Sign In")}
               </Button>
+
+              <Group justify="center" mt="md">
+                <Button
+                  component={Link}
+                  to={APP_ROUTE.AUTH.SIGNUP}
+                  variant="outline"
+                  fullWidth
+                >
+                  {t("Create an account")}
+                </Button>
+              </Group>
             </form>
-            
-            <Button 
-              component={Link} 
-              to="/create" 
-              fullWidth 
-              mt="md"
-              variant="outline"
-            >
-              {t("Create workspace")}
-            </Button>
           </>
-        )}
-        
-        {data?.enforceSso && (
-          <Button 
-            component={Link} 
-            to="/create" 
-            fullWidth 
-            mt="md"
-            variant="outline"
-          >
-            {t("Create workspace")}
-          </Button>
         )}
       </Box>
     </Container>

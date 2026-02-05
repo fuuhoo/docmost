@@ -131,10 +131,19 @@ export class GroupUserRepo {
     await executeTx(
       this.db,
       async (trx) => {
-        const defaultGroup = await this.groupRepo.getDefaultGroup(
+        let defaultGroup = await this.groupRepo.getDefaultGroup(
           workspaceId,
           trx,
         );
+        
+        // If no default group exists, create one
+        if (!defaultGroup) {
+          defaultGroup = await this.groupRepo.createDefaultGroup(
+            workspaceId,
+            { userId, trx },
+          );
+        }
+        
         await this.insertGroupUser(
           {
             userId,

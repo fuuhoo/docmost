@@ -62,14 +62,18 @@ export class StaticModule implements OnModuleInit {
 
       fs.writeFileSync(indexFilePath, transformedHtml);
 
-      const RENDER_PATH = '*';
-
+      // Register static files handler
+      // This will handle all static file requests
       await app.register(fastifyStatic, {
         root: clientDistPath,
         wildcard: false,
+        decorateReply: true,
       });
 
-      app.get(RENDER_PATH, (req: any, res: any) => {
+      // Register the catch-all route for SPA
+      // This will handle all non-static file requests
+      // Use a route with a parameter to match all paths
+      app.get('/*', (req: any, res: any) => {
         const stream = fs.createReadStream(indexFilePath);
         res.type('text/html').send(stream);
       });
