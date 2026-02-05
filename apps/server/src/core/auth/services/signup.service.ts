@@ -50,6 +50,7 @@ export class SignupService {
           {
             ...createUserDto,
             workspaceId: workspaceId,
+            role: UserRole.ADMIN,
           },
           trx,
         );
