@@ -41,6 +41,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+      host: '127.0.0.1',
       proxy: {
         "/api": {
           target: APP_URL,

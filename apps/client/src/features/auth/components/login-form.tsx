@@ -80,54 +80,52 @@ export function LoginForm() {
 
         <SsoLogin />
 
-        {!data?.enforceSso && (
-          <>
-            <form onSubmit={form.onSubmit(onSubmit)}>
-              <TextInput
-                id="email"
-                type="email"
-                label={t("Email")}
-                placeholder="email@example.com"
-                variant="filled"
-                {...form.getInputProps("email")}
-              />
+        <>
+          <form onSubmit={form.onSubmit(onSubmit)}>
+            <TextInput
+              id="email"
+              type="email"
+              label={t("Email")}
+              placeholder="email@example.com"
+              variant="filled"
+              {...form.getInputProps("email")}
+            />
 
-              <PasswordInput
-                label={t("Password")}
-                placeholder={t("Your password")}
-                variant="filled"
-                mt="md"
-                {...form.getInputProps("password")}
-              />
+            <PasswordInput
+              label={t("Password")}
+              placeholder={t("Your password")}
+              variant="filled"
+              mt="md"
+              {...form.getInputProps("password")}
+            />
 
-              <Group justify="flex-end" mt="sm">
-                <Anchor
-                  to={APP_ROUTE.AUTH.FORGOT_PASSWORD}
-                  component={Link}
-                  underline="never"
-                  size="sm"
-                >
-                  {t("Forgot your password?")}
-                </Anchor>
-              </Group>
+            <Group justify="flex-end" mt="sm">
+              <Anchor
+                to={APP_ROUTE.AUTH.FORGOT_PASSWORD}
+                component={Link}
+                underline="never"
+                size="sm"
+              >
+                {t("Forgot your password?")}
+              </Anchor>
+            </Group>
 
-              <Button type="submit" fullWidth mt="md" loading={isLoading}>
-                {t("Sign In")}
+            <Button type="submit" fullWidth mt="md" loading={isLoading}>
+              {t("Sign In")}
+            </Button>
+
+            <Group justify="center" mt="md">
+              <Button
+                component={Link}
+                to={APP_ROUTE.AUTH.SIGNUP}
+                variant="outline"
+                fullWidth
+              >
+                {t("Create an account")}
               </Button>
-
-              <Group justify="center" mt="md">
-                <Button
-                  component={Link}
-                  to={APP_ROUTE.AUTH.SIGNUP}
-                  variant="outline"
-                  fullWidth
-                >
-                  {t("Create an account")}
-                </Button>
-              </Group>
-            </form>
-          </>
-        )}
+            </Group>
+          </form>
+        </>
       </Box>
     </Container>
   );

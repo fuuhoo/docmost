@@ -75,9 +75,7 @@ export default function SsoLogin() {
           ))}
         </Stack>
 
-        {!data.enforceSso && (
-          <Divider my="xs" label="OR" labelPosition="center" />
-        )}
+        <Divider my="xs" label="OR" labelPosition="center" />
       </>
     </>
   );

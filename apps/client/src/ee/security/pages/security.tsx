@@ -44,8 +44,6 @@ export default function Security() {
 
       {(!isCloud() || isBusiness) ? (
         <>
-          <EnforceSso />
-          <Divider my="lg" />
           <CreateSsoProvider />
           <Divider size={0} my="lg" />
         </>

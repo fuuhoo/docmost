@@ -11,9 +11,7 @@ export class UpdateWorkspaceDto extends PartialType(CreateWorkspaceDto) {
   @IsArray()
   emailDomains: string[];
 
-  @IsOptional()
-  @IsBoolean()
-  enforceSso: boolean;
+
 
   @IsOptional()
   @IsBoolean()
