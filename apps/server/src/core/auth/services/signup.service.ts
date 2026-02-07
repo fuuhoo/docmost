@@ -4,20 +4,29 @@ import { WorkspaceService } from '../../workspace/services/workspace.service';
 import { CreateWorkspaceDto } from '../../workspace/dto/create-workspace.dto';
 import { CreateAdminUserDto } from '../dto/create-admin-user.dto';
 import { UserRepo } from '@docmost/db/repos/user/user.repo';
+import { WorkspaceRepo } from '@docmost/db/repos/workspace/workspace.repo';
+import { GroupRepo } from '@docmost/db/repos/group/group.repo';
+import { SpaceService } from '../../space/services/space.service';
+import { SpaceMemberService } from '../../space/services/space-member.service';
 import { KyselyDB, KyselyTransaction } from '@docmost/db/types/kysely.types';
 import { executeTx } from '@docmost/db/utils';
 import { InjectKysely } from 'nestjs-kysely';
 import { User, Workspace } from '@docmost/db/types/entity.types';
 import { GroupUserRepo } from '@docmost/db/repos/group/group-user.repo';
-import { UserRole } from '../../../common/helpers/types/permission';
+import { UserRole, SpaceRole } from '../../../common/helpers/types/permission';
 import { EnvironmentService } from '../../../integrations/environment/environment.service';
+import { CreateSpaceDto } from '../../space/dto/create-space.dto';
 
 @Injectable()
 export class SignupService {
   constructor(
     private userRepo: UserRepo,
     private workspaceService: WorkspaceService,
+    private workspaceRepo: WorkspaceRepo,
+    private groupRepo: GroupRepo,
     private groupUserRepo: GroupUserRepo,
+    private spaceService: SpaceService,
+    private spaceMemberService: SpaceMemberService,
     private environmentService: EnvironmentService,
     @InjectKysely() private readonly db: KyselyDB,
   ) {}
@@ -105,31 +114,89 @@ export class SignupService {
     await executeTx(
       this.db,
       async (trx) => {
-        // create user
+        // create workspace first
+        const workspaceData: CreateWorkspaceDto = {
+          name: createAdminUserDto.workspaceName || 'My workspace',
+          hostname: createAdminUserDto.hostname,
+        };
+
+        // Create workspace without user (will be added later)
+        workspace = await this.workspaceRepo.insertWorkspace(
+          {
+            name: workspaceData.name,
+            hostname: workspaceData.hostname,
+          },
+          trx,
+        );
+
+        // create user with workspaceId
         user = await this.userRepo.insertUser(
           {
             name: createAdminUserDto.name,
             email: createAdminUserDto.email,
             password: createAdminUserDto.password,
             role: UserRole.OWNER,
+            workspaceId: workspace.id,
             emailVerifiedAt: new Date(),
           },
           trx,
         );
 
-        // create workspace with full setup
-        const workspaceData: CreateWorkspaceDto = {
-          name: createAdminUserDto.workspaceName || 'My workspace',
-          hostname: createAdminUserDto.hostname,
-        };
+        // create default group
+        const group = await this.groupRepo.createDefaultGroup(workspace.id, {
+          userId: user.id,
+          trx: trx,
+        });
 
-        workspace = await this.workspaceService.create(
-          user,
-          workspaceData,
+        // add user to default group
+        await this.groupUserRepo.insertGroupUser(
+          {
+            userId: user.id,
+            groupId: group.id,
+          },
           trx,
         );
 
-        user.workspaceId = workspace.id;
+        // create default space
+        const spaceInfo: CreateSpaceDto = {
+          name: 'General',
+          slug: 'general',
+        };
+
+        const createdSpace = await this.spaceService.create(
+          user.id,
+          workspace.id,
+          spaceInfo,
+          trx,
+        );
+
+        // and add user to space as owner
+        await this.spaceMemberService.addUserToSpace(
+          user.id,
+          createdSpace.id,
+          SpaceRole.ADMIN,
+          workspace.id,
+          trx,
+        );
+
+        // add default group to space as writer
+        await this.spaceMemberService.addGroupToSpace(
+          group.id,
+          createdSpace.id,
+          SpaceRole.WRITER,
+          workspace.id,
+          trx,
+        );
+
+        // update default spaceId
+        await this.workspaceRepo.updateWorkspace(
+          {
+            defaultSpaceId: createdSpace.id,
+          },
+          workspace.id,
+          trx,
+        );
+
         return user;
       },
       trx,

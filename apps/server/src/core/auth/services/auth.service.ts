@@ -55,6 +55,10 @@ export class AuthService {
       throw new UnauthorizedException(errorMessage);
     }
 
+    if (!user.password) {
+      throw new UnauthorizedException(errorMessage);
+    }
+
     const isPasswordMatch = await comparePasswordHash(
       loginDto.password,
       user.password,
