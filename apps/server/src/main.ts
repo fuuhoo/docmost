@@ -12,6 +12,13 @@ import fastifyMultipart from '@fastify/multipart';
 import fastifyCookie from '@fastify/cookie';
 
 async function bootstrap() {
+  console.log('Starting server bootstrap...');
+  console.log('Environment variables loaded:');
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('PORT:', process.env.PORT);
+  console.log('APP_URL:', process.env.APP_URL);
+  console.log('DATABASE_URL:', process.env.DATABASE_URL);
+  
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({
@@ -24,10 +31,8 @@ async function bootstrap() {
     }),
     {
       rawBody: true,
-      // disable Nest logger so pino handles all logs
-      // bufferLogs must be false else pino will fail
-      // to log OnApplicationBootstrap logs
-      logger: false,
+      // Use Nest logger temporarily to see startup logs
+      logger: ['error', 'warn', 'log', 'debug'],
       bufferLogs: false,
     },
   );

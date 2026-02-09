@@ -124,34 +124,40 @@ export class DatabaseModule
   }
 
   async establishConnection() {
-    const retryAttempts = 15;
-    const retryDelay = 3000;
+    console.log('====================================');
+    console.log('STARTING DATABASE CONNECTION ATTEMPT');
+    console.log('====================================');
+    console.log('Current time:', new Date().toISOString());
+    console.log('Database URL:', this.environmentService.getDatabaseURL());
+    
+    const retryAttempts = 1;
+    const retryDelay = 1000;
 
-    this.logger.log('Establishing database connection');
     for (let i = 0; i < retryAttempts; i++) {
       try {
-        await sql`SELECT 1=1`.execute(this.db);
-        this.logger.log('Database connection successful');
+        console.log(`\nAttempt ${i + 1}/${retryAttempts}: Connecting to database...`);
+        console.log('Executing test query: SELECT 1=1');
+        const result = await sql`SELECT 1=1`.execute(this.db);
+        console.log('Database connection successful!');
+        console.log('Query result:', result);
         break;
-      } catch (err) {
-        if (err['errors']) {
-          this.logger.error(err['errors'][0]);
-        } else {
-          this.logger.error(err);
-        }
+      } catch (err: any) {
+        console.error(`\nAttempt ${i + 1}/${retryAttempts}: Database connection failed`);
+        console.error('Error details:', err);
+        console.error('Error stack:', err.stack);
 
         if (i < retryAttempts - 1) {
-          this.logger.log(
-            `Retrying [${i + 1}/${retryAttempts}] in ${retryDelay / 1000} seconds`,
-          );
+          console.log(`Retrying in ${retryDelay / 1000} seconds...`);
           await new Promise((resolve) => setTimeout(resolve, retryDelay));
         } else {
-          this.logger.error(
-            `Failed to connect to database after ${retryAttempts} attempts. Exiting...`,
-          );
+          console.error(`\nFailed to connect to database after ${retryAttempts} attempts. Exiting...`);
           process.exit(1);
         }
       }
     }
+    
+    console.log('\n====================================');
+    console.log('DATABASE CONNECTION ESTABLISHED');
+    console.log('====================================');
   }
 }
