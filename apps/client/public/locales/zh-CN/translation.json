@@ -576,5 +576,8 @@
   "Remove color": "移除颜色",
   "Double-click to edit KityMinder mindmap": "双击编辑 KityMinder 思维导图",
   "KityMinder mindmap": "KityMinder 思维导图",
-  "Loading KityMinder...": "正在加载 KityMinder..."
+  "Loading KityMinder...": "正在加载 KityMinder...",
+  "SSO login failed. Please try again.": "SSO 登录失败，请重试。",
+  "OIDC login failed. Please try again.": "OIDC 登录失败，请重试。",
+  "Authentication Error": "认证错误"
 }

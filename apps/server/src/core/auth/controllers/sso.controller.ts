@@ -15,6 +15,7 @@ import { SkipTransform } from '../../../common/decorators/skip-transform.decorat
 import { Workspace } from '@docmost/db/types/entity.types';
 import { SsoService } from '../services/sso.service';
 import { DomainService } from '../../../integrations/environment/domain.service';
+import { EnvironmentService } from '../../../integrations/environment/environment.service';
 
 @Controller('sso')
 export class SsoController {
@@ -23,6 +24,7 @@ export class SsoController {
   constructor(
     private ssoService: SsoService,
     private domainService: DomainService,
+    private environmentService: EnvironmentService,
   ) {}
 
   @Public()
@@ -36,14 +38,12 @@ export class SsoController {
     @Query('state') state: string,
   ) {
     try {
-      // Extract workspaceId from state
       let workspaceId: string;
       try {
         const stateObj = JSON.parse(state);
         workspaceId = stateObj.workspaceId;
       } catch (parseError) {
-        // If state is not JSON, throw error
-        throw new Error('State is not JSON format');
+        throw new Error('Invalid state parameter');
       }
 
       const authToken = await this.ssoService.handleCallback(
@@ -53,15 +53,16 @@ export class SsoController {
         workspaceId,
       );
 
-      // Get workspace hostname for redirect
       const workspace = await this.ssoService.getWorkspaceById(workspaceId);
       this.setAuthCookie(res, authToken);
       res.statusCode = 302;
       return res.redirect(this.domainService.getUrl(workspace?.hostname));
     } catch (error) {
-      this.logger.error('SSO callback error:', error);
+      this.logger.error('SSO callback error:', error.message);
       res.statusCode = 302;
-      return res.redirect(this.domainService.getUrl());
+      const errorUrl = new URL(this.domainService.getUrl());
+      errorUrl.searchParams.set('error', 'sso_failed');
+      return res.redirect(errorUrl.toString());
     }
   }
 
@@ -75,64 +76,36 @@ export class SsoController {
     @Query('code') code: string,
     @Query('state') state: string,
   ) {
-    this.logger.log(`OIDC callback received:`);
-    this.logger.log(`  providerId: ${providerId}`);
-    this.logger.log(`  code: ${code ? code.substring(0, 20) + '...' : 'null'}`);
-    this.logger.log(`  state: ${state}`);
-    this.logger.log(`  request URL: ${req.raw.url}`);
-    
     try {
-      // Extract workspaceId from state
       let workspaceId: string;
       try {
-        this.logger.log(`Parsing state to extract workspaceId`);
         const stateObj = JSON.parse(state);
         workspaceId = stateObj.workspaceId;
-        this.logger.log(`Extracted workspaceId: ${workspaceId}`);
       } catch (parseError) {
-        this.logger.error('Error parsing state:', parseError);
-        // If state is not JSON, try to get workspace from request
-        // Note: This is a fallback, but in OIDC callback requests, we should always get workspaceId from state
-        throw new Error('State is not JSON format, and no workspace found in request');
-        // const workspace = req.raw?.workspace ?? (req as any)?.user?.workspace;
-        // if (!workspace) {
-        //   throw new Error('No workspace found in state or request');
-        // }
-        // workspaceId = workspace.id;
-        // this.logger.log(`Got workspaceId from request: ${workspaceId}`);
+        throw new Error('Invalid state parameter');
       }
 
       if (!workspaceId) {
-        throw new Error('No workspaceId found');
+        throw new Error('No workspaceId in state');
       }
 
-      this.logger.log(`Calling ssoService.handleCallback with workspaceId: ${workspaceId}`);
       const authToken = await this.ssoService.handleCallback(
         providerId,
         code,
         state,
         workspaceId,
       );
-      this.logger.log(`handleCallback returned authToken: ${!!authToken}`);
 
-      // Get workspace hostname for redirect
-      this.logger.log(`Getting workspace by id: ${workspaceId}`);
       const workspace = await this.ssoService.getWorkspaceById(workspaceId);
-      this.logger.log(`Got workspace: ${workspace ? workspace.id : 'null'}`);
-      
-      this.logger.log(`Setting auth cookie and redirecting`);
       this.setAuthCookie(res, authToken);
       res.statusCode = 302;
-      const redirectUrl = this.domainService.getUrl(workspace?.hostname);
-      this.logger.log(`Redirecting to: ${redirectUrl}`);
-      return res.redirect(redirectUrl);
+      return res.redirect(this.domainService.getUrl(workspace?.hostname));
     } catch (error) {
-      this.logger.error('OIDC callback error:', error);
-      this.logger.error('Error stack:', (error as any).stack);
+      this.logger.error('OIDC callback error:', error.message);
       res.statusCode = 302;
-      const errorRedirectUrl = this.domainService.getUrl();
-      this.logger.log(`Redirecting to error URL: ${errorRedirectUrl}`);
-      return res.redirect(errorRedirectUrl);
+      const errorUrl = new URL(this.domainService.getUrl());
+      errorUrl.searchParams.set('error', 'oidc_failed');
+      return res.redirect(errorUrl.toString());
     }
   }
 
@@ -145,18 +118,15 @@ export class SsoController {
     @AuthWorkspace() workspace: Workspace,
   ) {
     try {
-      this.logger.log(`Login endpoint called with providerId: ${providerId}, workspaceId: ${workspace.id}`);
-      
       const { url } = await this.ssoService.getAuthorizationUrl(
         providerId,
         workspace.id,
       );
-      this.logger.log(`Generated authorization URL: ${url}`);
-      
+
       res.statusCode = 302;
       return res.redirect(url);
     } catch (error) {
-      this.logger.error(`Error in login endpoint: ${error}`);
+      this.logger.error('SSO login error:', error.message);
       res.statusCode = 302;
       return res.redirect(this.domainService.getUrl(workspace.hostname));
     }
@@ -166,8 +136,8 @@ export class SsoController {
     res.setCookie('authToken', token, {
       httpOnly: true,
       path: '/',
-      secure: false, // Set to true in production with HTTPS
-      domain: '127.0.0.1', // Set domain to 127.0.0.1 for local development
+      expires: this.environmentService.getCookieExpiresIn(),
+      secure: this.environmentService.isHttps(),
     });
   }
 }

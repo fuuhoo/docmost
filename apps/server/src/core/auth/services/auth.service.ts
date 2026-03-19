@@ -77,8 +77,6 @@ export class AuthService {
   }
 
   async register(email: string, workspace: Workspace) {
-    this.logger.log(`Register called for email: ${email}, workspace: ${workspace.id}`);
-    
     const allowedDomains = this.environmentService.getEmailAllowedDomains();
     if (allowedDomains.length > 0) {
       const emailDomain = email.split('@')[1];
@@ -124,24 +122,19 @@ export class AuthService {
       .returningAll()
       .executeTakeFirst();
 
-    this.logger.log(`Created invitation: ${JSON.stringify(invitation)}`);
+    this.logger.log(`Created invitation for ${email}`);
 
     const inviteLink = `${this.domainService.getUrl(workspace.hostname)}/invites/${invitation.id}?token=${token}`;
-    this.logger.log(`Invite link: ${inviteLink}`);
 
     const emailTemplate = InvitationEmail({
       inviteLink,
     });
 
-    this.logger.log(`Sending email to: ${email}`);
-    
     await this.mailService.sendToQueue({
       to: email,
       subject: 'You have been invited to join Docmost',
       template: emailTemplate,
     });
-    
-    this.logger.log(`Email queued successfully`);
   }
 
   async setup(createAdminUserDto: CreateAdminUserDto) {

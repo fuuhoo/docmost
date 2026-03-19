@@ -576,5 +576,8 @@
   "Remove color": "Remove color",
   "Double-click to edit KityMinder mindmap": "Double-click to edit KityMinder mindmap",
   "KityMinder mindmap": "KityMinder mindmap",
-  "Loading KityMinder...": "Loading KityMinder..."
+  "Loading KityMinder...": "Loading KityMinder...",
+  "SSO login failed. Please try again.": "SSO login failed. Please try again.",
+  "OIDC login failed. Please try again.": "OIDC login failed. Please try again.",
+  "Authentication Error": "Authentication Error"
 }
