@@ -1,7 +1,5 @@
 import { NodeViewProps, NodeViewWrapper } from "@tiptap/react";
 import {
-  ActionIcon,
-  Alert,
   Button,
   Card,
   Group,
@@ -55,13 +53,11 @@ export default function KityminderView(props: NodeViewProps) {
       }
     } catch (err) {
       console.error("Error loading initial data:", err);
-      setError(`加载数据失败: ${err instanceof Error ? err.message : "未知错误"}`);
-      setLoading(false);
-      // Don't open modal on error - let user see the alert and retry
-      return;
+    } finally {
+      setLoading(true);
+      setError(null);
+      open();
     }
-
-    open();
   };
 
   // iframe 加载超时保护
@@ -202,91 +198,79 @@ export default function KityminderView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper data-drag-handle>
-      {error && !opened && (
-        <Alert
-          icon={<IconAlertCircle size={16} />}
-          title="KityMinder"
-          color="red"
-          mb="sm"
-          withCloseButton
-          onClose={() => setError(null)}
+      <ReactClearModal
+        style={{
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          padding: 0,
+          zIndex: 200,
+        }}
+        isOpen={opened}
+        onRequestClose={handleClose}
+        disableCloseOnBgClick={true}
+        contentProps={{
+          style: {
+            padding: 0,
+            width: "90vw",
+          },
+        }}
+      >
+        <Group
+          justify="flex-end"
+          wrap="nowrap"
+          bg="var(--mantine-color-body)"
+          p="xs"
         >
-          {error}
-        </Alert>
-      )}
-
-      <Modal.Root opened={opened} onClose={handleClose} fullScreen>
-        <Modal.Overlay />
-        <Modal.Content style={{ overflow: "hidden" }}>
-          <Modal.Body style={{ padding: 0 }}>
-            <Group
-              justify="flex-end"
-              wrap="nowrap"
-              bg="var(--mantine-color-body)"
-              p="xs"
-            >
-              <Button onClick={handleSave} size="compact-sm">
-                {t("Save & Exit")}
-              </Button>
-              <Button onClick={handleClose} color="red" size="compact-sm">
-                {t("Exit")}
-              </Button>
-            </Group>
-            <div style={{ position: "relative", height: "calc(100vh - 50px)" }}>
-              {loading && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    fontSize: "16px",
-                    zIndex: 10,
-                    backgroundColor: "var(--mantine-color-body)",
-                    padding: "20px",
-                    borderRadius: "8px",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                  }}
-                >
-                  {t("Loading KityMinder...")}
-                </div>
-              )}
-              {error && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    color: "red",
-                    fontSize: "16px",
-                    zIndex: 10,
-                    backgroundColor: "var(--mantine-color-body)",
-                    padding: "20px",
-                    borderRadius: "8px",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                    textAlign: "center",
-                    maxWidth: "80%",
-                  }}
-                >
-                  {error}
-                </div>
-              )}
-              <iframe
-                ref={iframeRef}
-                key={opened ? "open" : "closed"}
-                src="/kityminder/index.html"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  border: "none",
-                }}
-                title="KityMinder Editor"
-              />
+          <Button onClick={handleSave} size={"compact-sm"}>
+            {t("Save & Exit")}
+          </Button>
+          <Button onClick={handleClose} color="red" size={"compact-sm"}>
+            {t("Exit")}
+          </Button>
+        </Group>
+        <div style={{ position: "relative", height: "90vh" }}>
+          {loading && (
+            <div style={{ 
+              position: "absolute", 
+              top: "50%", 
+              left: "50%", 
+              transform: "translate(-50%, -50%)",
+              fontSize: "16px",
+              zIndex: 10,
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+            }}>
+              正在加载 KityMinder...
             </div>
-          </Modal.Body>
-        </Modal.Content>
-      </Modal.Root>
+          )}
+          {error && (
+            <div style={{ 
+              position: "absolute", 
+              top: "50%", 
+              left: "50%", 
+              transform: "translate(-50%, -50%)",
+              color: "red",
+              fontSize: "16px",
+              zIndex: 10,
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+            }}>
+              {error}
+            </div>
+          )}
+          <iframe
+            ref={iframeRef}
+            src="/kityminder/index.html"
+            style={{
+              width: "100%",
+              height: "100%",
+              border: "none",
+            }}
+            title="KityMinder Editor"
+          />
+        </div>
+      </ReactClearModal>
 
       {src ? (
         <div style={{ position: "relative" }}>
