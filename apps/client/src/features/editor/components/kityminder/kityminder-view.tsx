@@ -1,6 +1,7 @@
 import { NodeViewProps, NodeViewWrapper } from "@tiptap/react";
 import {
   ActionIcon,
+  Alert,
   Button,
   Card,
   Group,
@@ -14,7 +15,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { getFileUrl } from "@/lib/config.ts";
 import { IAttachment } from "@/features/attachments/types/attachment.types";
 import clsx from "clsx";
-import { IconEdit } from "@tabler/icons-react";
+import { IconAlertCircle, IconEdit } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 
 export default function KityminderView(props: NodeViewProps) {
@@ -55,6 +56,9 @@ export default function KityminderView(props: NodeViewProps) {
     } catch (err) {
       console.error("Error loading initial data:", err);
       setError(`加载数据失败: ${err instanceof Error ? err.message : "未知错误"}`);
+      setLoading(false);
+      // Don't open modal on error - let user see the alert and retry
+      return;
     }
 
     open();
@@ -198,6 +202,19 @@ export default function KityminderView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper data-drag-handle>
+      {error && !opened && (
+        <Alert
+          icon={<IconAlertCircle size={16} />}
+          title="KityMinder"
+          color="red"
+          mb="sm"
+          withCloseButton
+          onClose={() => setError(null)}
+        >
+          {error}
+        </Alert>
+      )}
+
       <Modal.Root opened={opened} onClose={handleClose} fullScreen>
         <Modal.Overlay />
         <Modal.Content style={{ overflow: "hidden" }}>
@@ -257,6 +274,7 @@ export default function KityminderView(props: NodeViewProps) {
               )}
               <iframe
                 ref={iframeRef}
+                key={opened ? "open" : "closed"}
                 src="/kityminder/index.html"
                 style={{
                   width: "100%",
