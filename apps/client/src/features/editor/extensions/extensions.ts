@@ -58,6 +58,8 @@ import AttachmentView from "@/features/editor/components/attachment/attachment-v
 import CodeBlockView from "@/features/editor/components/code-block/code-block-view.tsx";
 import DrawioView from "../components/drawio/drawio-view";
 import ExcalidrawView from "@/features/editor/components/excalidraw/excalidraw-view.tsx";
+import KityminderView from "../components/kityminder/kityminder-view";
+import { Kityminder } from "@docmost/editor-ext";
 import EmbedView from "@/features/editor/components/embed/embed-view.tsx";
 import SubpagesView from "@/features/editor/components/subpages/subpages-view.tsx";
 import { common, createLowlight } from "lowlight";
@@ -224,6 +226,9 @@ export const mainExtensions = [
   }),
   Excalidraw.configure({
     view: ExcalidrawView,
+  }),
+  Kityminder.configure({
+    view: KityminderView,
   }),
   Embed.configure({
     view: EmbedView,

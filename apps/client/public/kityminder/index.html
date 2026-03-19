@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>KityMinder Editor - Powered By FEX</title>
+
+	<link href="favicon.ico" type="image/x-icon" rel="shortcut icon">
+
+	<!-- bower:css -->
+	<link rel="stylesheet" href="./bower_components/bootstrap/dist/css/bootstrap.css" />
+	<link rel="stylesheet" href="./bower_components/codemirror/lib/codemirror.css" />
+	<link rel="stylesheet" href="./bower_components/hotbox/hotbox.css" />
+	<link rel="stylesheet" href="./bower_components/kityminder-core/kityminder.core.css" />
+	<link rel="stylesheet" href="./bower_components/color-picker/dist/color-picker.min.css" />
+	<!-- endbower -->
+
+	<link rel="stylesheet" href="kityminder.editor.min.css">
+
+	<style>
+		html, body {
+			margin: 0;
+			padding: 0;
+			height: 100%;
+			overflow: hidden;
+		}
+		h1.editor-title {
+			background: #393F4F;
+			color: white;
+			margin: 0;
+			height: 40px;
+			font-size: 14px;
+			line-height: 40px;
+			font-family: 'Hiragino Sans GB', 'Arial', 'Microsoft Yahei';
+			font-weight: normal;
+			padding: 0 20px;
+		}
+		div.minder-editor-container {
+			position: absolute;
+			top: 40px;
+			bottom: 0;
+			left: 0;
+			right: 0;
+		}
+	</style>
+
+	<!-- 定义 marked 函数，必须在 kityminder.editor.min.js 之前加载 -->
+	<script>
+		// 完整的 Markdown 转换函数实现，包括 setOptions 方法
+		window.marked = function(text) {
+			if (!text) return '';
+			// 基本的 Markdown 转换
+			return text
+				.replace(/\n### (.*?)\n/g, '<h3>$1</h3>')
+				.replace(/\n## (.*?)\n/g, '<h2>$1</h2>')
+				.replace(/\n# (.*?)\n/g, '<h1>$1</h1>')
+				.replace(/\*(.*?)\*/g, '<em>$1</em>')
+				.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+				.replace(/\n- (.*?)\n/g, '<li>$1</li>')
+				.replace(/(<li>.*?<\/li>)/s, '<ul>$1</ul>')
+				.replace(/\n/g, '<br>');
+		};
+		// 添加 setOptions 方法
+		window.marked.setOptions = function(options) {
+			// 存储选项但不做实际处理
+			window.marked.options = options || {};
+		};
+		// 确保 marked 是全局可用的
+		if (typeof module !== 'undefined' && module.exports) {
+			module.exports = window.marked;
+		}
+		// 确保 marked 存在
+		if (typeof marked === 'undefined') {
+			console.error('marked is undefined, creating fallback');
+			window.marked = window.marked || function() { return ''; };
+			window.marked.setOptions = function() {};
+		}
+		console.log('marked function defined:', typeof marked);
+		console.log('marked.setOptions defined:', typeof marked.setOptions);
+	</script>
+</head>
+<body ng-app="kityminderDemo" ng-controller="MainController">
+<h1 class="editor-title">KityMinder Editor - Powered By FEX</h1>
+<kityminder-editor on-init="initEditor(editor, minder)"></kityminder-editor>
+</body>
+
+<!-- bower:js -->
+<script src="./bower_components/jquery/dist/jquery.js"></script>
+<script src="./bower_components/bootstrap/dist/js/bootstrap.js"></script>
+<script src="./bower_components/angular/angular.js"></script>
+<script src="./bower_components/angular-bootstrap/ui-bootstrap-tpls.js"></script>
+<script src="./bower_components/codemirror/lib/codemirror.js"></script>
+<script src="./bower_components/codemirror/mode/xml/xml.js"></script>
+<script src="./bower_components/codemirror/mode/javascript/javascript.js"></script>
+<script src="./bower_components/codemirror/mode/css/css.js"></script>
+<script src="./bower_components/codemirror/mode/htmlmixed/htmlmixed.js"></script>
+<script src="./bower_components/codemirror/mode/markdown/markdown.js"></script>
+<script src="./bower_components/codemirror/addon/mode/overlay.js"></script>
+<script src="./bower_components/codemirror/mode/gfm/gfm.js"></script>
+<script src="./bower_components/angular-ui-codemirror/ui-codemirror.js"></script>
+<script src="./bower_components/kity/dist/kity.min.js"></script>
+<script src="./bower_components/hotbox/hotbox.js"></script>
+<script src="./bower_components/json-diff/json-diff.js"></script>
+<script src="./bower_components/kityminder-core/kityminder.core.min.js"></script>
+<script src="./bower_components/color-picker/dist/color-picker.min.js"></script>
+<!-- endbower -->
+
+<script src="kityminder.editor.min.js"></script>
+
+
+<script>
+	angular.module('kityminderDemo', ['kityminderEditor'])
+			.config(function (configProvider) {
+				configProvider.set('imageUpload', '../server/imageUpload.php');
+			})
+			.controller('MainController', function($scope) {
+				$scope.initEditor = function(editor, minder) {
+					window.editor = editor;
+					window.minder = minder;
+					
+					console.log('KityMinder Editor initialized');
+					
+					// 监听来自父窗口的消息
+					window.addEventListener('message', function(event) {
+						console.log('Received message from parent:', event.data);
+						const { type, data } = event.data || {};
+						
+						if (type === 'loadData') {
+							console.log('Loading data:', data);
+							if (data) {
+								minder.importJson(data);
+							} else {
+								// 默认数据
+								const defaultData = {
+									root: {
+										data: {
+											text: "中心主题",
+											id: 1,
+										},
+										children: [
+											{
+												data: { text: "分支1", id: 2 },
+												children: []
+											},
+											{
+												data: { text: "分支2", id: 3 },
+												children: []
+											}
+										]
+									},
+									template: "default",
+								};
+								console.log('Loading default data:', defaultData);
+								minder.importJson(defaultData);
+							}
+						} else if (type === 'save') {
+							console.log('Saving data...');
+							const jsonData = minder.exportJson();
+							console.log('Exported data:', jsonData);
+							
+							// 导出 SVG
+							const svgString = exportToSVG(minder);
+							console.log('Exported SVG:', svgString);
+							
+							window.parent.postMessage({
+								type: 'saveComplete',
+								data: jsonData,
+								svg: svgString
+							}, '*');
+						}
+					});
+					
+					// 通知父窗口初始化完成
+					console.log('Sending ready message to parent...');
+					window.parent.postMessage({
+						type: 'ready'
+					}, '*');
+					console.log('Ready message sent');
+				};
+			});
+
+	// 导出为 SVG
+	function exportToSVG(minder) {
+		try {
+			// 获取渲染容器
+			const paper = minder.getPaper();
+			const container = paper.container;
+			
+			// 获取 SVG 元素
+			const svgElement = container.querySelector('svg');
+			if (!svgElement) {
+				console.error('SVG element not found');
+				return null;
+			}
+			
+			// 克隆 SVG
+			const clonedSvg = svgElement.cloneNode(true);
+			
+			// 获取边界框
+			const bbox = svgElement.getBBox();
+			console.log('SVG bbox:', bbox);
+			
+			// 设置 SVG 属性
+			clonedSvg.setAttribute('width', bbox.width);
+			clonedSvg.setAttribute('height', bbox.height);
+			// 修正 viewBox 起始点为 0 0，确保内容在可见区域内
+			clonedSvg.setAttribute('viewBox', '0 0 ' + bbox.width + ' ' + bbox.height);
+			
+			// 调整内容位置，将内容移动到 (0, 0) 开始的位置
+			const gElements = clonedSvg.querySelectorAll('g');
+			gElements.forEach(function(g) {
+				const transform = g.getAttribute('transform');
+				if (transform) {
+					// 移除 translate 中的偏移量
+					const newTransform = transform.replace(/translate\s*\(\s*[\d.]+\s+[\d.]+\s*\)/, 'translate(0 0)');
+					g.setAttribute('transform', newTransform);
+				}
+			});
+			
+			// 序列化为字符串
+			const serializer = new XMLSerializer();
+			let svgString = serializer.serializeToString(clonedSvg);
+			
+			// 添加 XML 声明
+			svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' + svgString;
+			
+			return svgString;
+		} catch (error) {
+			console.error('Failed to export SVG:', error);
+			return null;
+		}
+	}
+
+</script>
+
+</html>

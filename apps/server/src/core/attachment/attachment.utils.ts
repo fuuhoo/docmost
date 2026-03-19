@@ -1,7 +1,7 @@
 import { MultipartFile } from '@fastify/multipart';
 import * as path from 'path';
 import { AttachmentType } from './attachment.constants';
-import { sanitizeFileName } from '../../common/helpers';
+import { sanitizeFileName, getMimeType } from '../../common/helpers';
 import * as sharp from 'sharp';
 
 export interface PreparedFile {
@@ -36,12 +36,17 @@ export async function prepareFile(
     const fileName = sanitizedFilename.slice(0, 255);
     const fileExtension = path.extname(file.filename).toLowerCase();
 
+    let mimeType = file.mimetype;
+    if (mimeType === 'application/octet-stream' || !mimeType) {
+      mimeType = getMimeType(fileName);
+    }
+
     return {
       buffer,
       fileName,
       fileSize,
       fileExtension,
-      mimeType: file.mimetype,
+      mimeType,
       multiPartFile: file,
     };
   } catch (error) {

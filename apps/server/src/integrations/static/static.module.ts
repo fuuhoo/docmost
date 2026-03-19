@@ -63,7 +63,7 @@ export class StaticModule implements OnModuleInit {
       fs.writeFileSync(indexFilePath, transformedHtml);
 
       // Register static files handler
-      // This will handle all static file requests
+      // This will handle all static file requests including kityminder
       await app.register(fastifyStatic, {
         root: clientDistPath,
         wildcard: false,

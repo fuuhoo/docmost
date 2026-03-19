@@ -31,6 +31,7 @@ import { uploadAttachmentAction } from "@/features/editor/components/attachment/
 import IconExcalidraw from "@/components/icons/icon-excalidraw";
 import IconMermaid from "@/components/icons/icon-mermaid";
 import IconDrawio from "@/components/icons/icon-drawio";
+import IconKityminder from "@/components/icons/icon-kityminder";
 import {
   AirtableIcon,
   FigmaIcon,
@@ -357,6 +358,14 @@ const CommandGroups: SlashMenuGroupedItemsType = {
       icon: IconExcalidraw,
       command: ({ editor, range }: CommandProps) =>
         editor.chain().focus().deleteRange(range).setExcalidraw().run(),
+    },
+    {
+      title: "KityMinder mindmap",
+      description: "Create and edit KityMinder mindmap",
+      searchTerms: ["kityminder", "mindmap", "brainstorm", "mind map", "脑图"],
+      icon: IconKityminder,
+      command: ({ editor, range }: CommandProps) =>
+        editor.chain().focus().deleteRange(range).insertContent({ type: "kityminder", attrs: {} }).run(),
     },
     {
       title: "Date",
