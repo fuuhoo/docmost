@@ -195,26 +195,29 @@
 			// 克隆 SVG
 			const clonedSvg = svgElement.cloneNode(true);
 			
-			// 获取边界框
+			// 获取边界框（包含 x, y 偏移）
 			const bbox = svgElement.getBBox();
 			console.log('SVG bbox:', bbox);
 			
-			// 设置 SVG 属性
-			clonedSvg.setAttribute('width', bbox.width);
-			clonedSvg.setAttribute('height', bbox.height);
-			// 修正 viewBox 起始点为 0 0，确保内容在可见区域内
-			clonedSvg.setAttribute('viewBox', '0 0 ' + bbox.width + ' ' + bbox.height);
+			if (!bbox.width || !bbox.height) {
+				console.error('SVG bbox is empty');
+				return null;
+			}
 			
-			// 调整内容位置，将内容移动到 (0, 0) 开始的位置
-			const gElements = clonedSvg.querySelectorAll('g');
-			gElements.forEach(function(g) {
-				const transform = g.getAttribute('transform');
-				if (transform) {
-					// 移除 translate 中的偏移量
-					const newTransform = transform.replace(/translate\s*\(\s*[\d.]+\s+[\d.]+\s*\)/, 'translate(0 0)');
-					g.setAttribute('transform', newTransform);
-				}
-			});
+			// 添加边距，防止内容贴边
+			const padding = 10;
+			const viewBoxX = bbox.x - padding;
+			const viewBoxY = bbox.y - padding;
+			const viewBoxW = bbox.width + padding * 2;
+			const viewBoxH = bbox.height + padding * 2;
+			
+			// 正确设置 viewBox：保留内容的实际偏移位置
+			clonedSvg.setAttribute('width', viewBoxW);
+			clonedSvg.setAttribute('height', viewBoxH);
+			clonedSvg.setAttribute('viewBox', viewBoxX + ' ' + viewBoxY + ' ' + viewBoxW + ' ' + viewBoxH);
+			// 移除可能存在的 width/height 属性干扰
+			clonedSvg.style.width = '';
+			clonedSvg.style.height = '';
 			
 			// 序列化为字符串
 			const serializer = new XMLSerializer();
