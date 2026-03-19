@@ -102,8 +102,8 @@ export class SsoService {
         throw new Error('OIDC authentication failed: Invalid or missing email address');
       }
     } catch (error) {
-      this.logger.error('OIDC token exchange failed:', error.message);
-      throw new Error(`OIDC authentication failed: ${error.message}`);
+      this.logger.error('OIDC token exchange failed:', (error as Error).message);
+      throw new Error(`OIDC authentication failed: ${(error as Error).message}`);
     }
 
     const user = await this.findOrCreateUser(userInfo, provider, workspaceId);

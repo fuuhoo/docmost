@@ -58,7 +58,7 @@ export class SsoController {
       res.statusCode = 302;
       return res.redirect(this.domainService.getUrl(workspace?.hostname));
     } catch (error) {
-      this.logger.error('SSO callback error:', error.message);
+      this.logger.error('SSO callback error:', (error as Error).message);
       res.statusCode = 302;
       const errorUrl = new URL(this.domainService.getUrl());
       errorUrl.searchParams.set('error', 'sso_failed');
@@ -101,7 +101,7 @@ export class SsoController {
       res.statusCode = 302;
       return res.redirect(this.domainService.getUrl(workspace?.hostname));
     } catch (error) {
-      this.logger.error('OIDC callback error:', error.message);
+      this.logger.error('OIDC callback error:', (error as Error).message);
       res.statusCode = 302;
       const errorUrl = new URL(this.domainService.getUrl());
       errorUrl.searchParams.set('error', 'oidc_failed');
@@ -126,7 +126,7 @@ export class SsoController {
       res.statusCode = 302;
       return res.redirect(url);
     } catch (error) {
-      this.logger.error('SSO login error:', error.message);
+      this.logger.error('SSO login error:', (error as Error).message);
       res.statusCode = 302;
       return res.redirect(this.domainService.getUrl(workspace.hostname));
     }

@@ -15,6 +15,8 @@ import { IAttachment } from "@/features/attachments/types/attachment.types";
 import clsx from "clsx";
 import { IconAlertCircle, IconEdit } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
+import { ActionIcon } from "@mantine/core";  // 加上 ActionIcon
+import ReactClearModal from "react-clear-modal";   // 新增这一行
 
 export default function KityminderView(props: NodeViewProps) {
   const { t } = useTranslation();
