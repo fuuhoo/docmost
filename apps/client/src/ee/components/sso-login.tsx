@@ -6,6 +6,7 @@ import { IAuthProvider } from "@/ee/security/types/security.types.ts";
 import { buildSsoLoginUrl } from "@/ee/security/sso.utils.ts";
 import { SSO_PROVIDER } from "@/ee/security/contants.ts";
 import { GoogleIcon } from "@/components/icons/google-icon.tsx";
+import { OpenIdIcon } from "@/components/icons/openid-icon.tsx";
 import { isCloud } from "@/lib/config.ts";
 import { LdapLoginModal } from "@/ee/components/ldap-login-modal.tsx";
 
@@ -14,7 +15,7 @@ export default function SsoLogin() {
   const [ldapModalOpened, setLdapModalOpened] = useState(false);
   const [selectedLdapProvider, setSelectedLdapProvider] = useState<IAuthProvider | null>(null);
 
-  if (!data?.authProviders || data?.authProviders?.length === 0) {
+  if (isLoading || !data?.authProviders || data?.authProviders?.length === 0) {
     return null;
   }
 
@@ -38,6 +39,8 @@ export default function SsoLogin() {
       return <GoogleIcon size={16} />;
     } else if (provider.type === SSO_PROVIDER.LDAP) {
       return <IconServer size={16} />;
+    } else if (provider.type === SSO_PROVIDER.OIDC) {
+      return <OpenIdIcon size={16} />;
     } else {
       return <IconLock size={16} />;
     }
@@ -65,7 +68,7 @@ export default function SsoLogin() {
                 onClick={() => handleSsoLogin(provider)}
                 leftSection={getProviderIcon(provider)}
                 variant="filled"
-                color="primary"
+                color="blue"
                 fullWidth
                 disabled={isLoading}
               >

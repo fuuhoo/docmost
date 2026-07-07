@@ -14,17 +14,18 @@ Docmost 是一个开源的协作式知识库和文档软件，提供实时协作
 ## 安装步骤
 
 1. **克隆项目**
+
    ```bash
    git clone <repository-url>
    cd docmost-self
    ```
-
 2. **安装依赖**
+
    ```bash
    pnpm install
    ```
-
 3. **配置环境变量**
+
    - 复制 `.env.example` 文件为 `.env`
    - 根据实际情况修改 `.env` 文件中的配置
 
@@ -33,43 +34,53 @@ Docmost 是一个开源的协作式知识库和文档软件，提供实时协作
 ### 开发环境
 
 #### 方法1：同时启动前端和后端（推荐）
+
 ```bash
 # 在项目根目录执行
 pnpm run dev
 ```
+
 - 前端服务器：http://127.0.0.1:5173
 - 后端服务器：http://127.0.0.1:3003
 
 #### 方法2：单独启动前端
+
 ```bash
 # 在 apps/client 目录执行
 pnpm run dev
 ```
+
 - 前端服务器：http://127.0.0.1:5173
 
 #### 方法3：单独启动后端
+
 ```bash
 # 在 apps/server 目录执行
 pnpm run start:dev
 ```
+
 - 后端服务器：http://127.0.0.1:3003
 
 ### 生产环境
 
 #### 1. 构建项目
+
 ```bash
 # 在项目根目录执行
 pnpm run build
 ```
 
 #### 2. 启动生产服务器
+
 ```bash
 # 在项目根目录执行
 pnpm run start
 ```
+
 - 生产服务器：http://127.0.0.1:3003
 
 #### 3. 启动协作服务（可选）
+
 ```bash
 # 在项目根目录执行
 pnpm run collab
@@ -103,15 +114,25 @@ pnpm run collab
 - `SMTP_USERNAME`：SMTP 用户名
 - `SMTP_PASSWORD`：SMTP 密码
 
+## 打包docker 
+执行Dockerfile文件
+
+```
+# 构建一个名为 myapp，标签为 v1.0 的镜像
+docker build -t myapp:v1.0 .
+```
+
 ## 数据库迁移
 
 ### 运行迁移
+
 ```bash
 # 在 apps/server 目录执行
 pnpm run migration:latest
 ```
 
 ### 创建新迁移
+
 ```bash
 # 在 apps/server 目录执行
 pnpm run migration:create <migration-name>
@@ -120,19 +141,23 @@ pnpm run migration:create <migration-name>
 ## 常见问题
 
 ### 1. 数据库连接失败
+
 - 检查 PostgreSQL 服务是否运行
 - 验证 `.env` 文件中的 `DATABASE_URL` 配置是否正确
 - 确保数据库用户有足够的权限
 
 ### 2. Redis 连接失败
+
 - 检查 Redis 服务是否运行
 - 验证 `.env` 文件中的 `REDIS_URL` 配置是否正确
 
 ### 3. 端口占用
+
 - 确保 3003（后端）和 5173（前端）端口没有被其他服务占用
 - 可以在 `.env` 文件中修改 `PORT` 配置来更改后端端口
 
 ### 4. 依赖问题
+
 - 尝试重新安装依赖：
   ```bash
   pnpm install
@@ -149,16 +174,17 @@ pnpm run migration:create <migration-name>
 ## 开发工具
 
 - **代码格式化**：
+
   ```bash
   pnpm run format
   ```
-
 - **代码检查**：
+
   ```bash
   # 前端
   cd apps/client
   pnpm run lint
-  
+
   # 后端
   cd apps/server
   pnpm run lint

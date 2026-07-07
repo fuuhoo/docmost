@@ -36,6 +36,7 @@ import { useTrackOrigin } from "@/hooks/use-track-origin";
 import SpacesPage from "@/pages/spaces/spaces.tsx";
 import { MfaChallengePage } from "@/ee/mfa/pages/mfa-challenge-page";
 import { MfaSetupRequiredPage } from "@/ee/mfa/pages/mfa-setup-required-page";
+import SsoSignupPage from "@/pages/auth/sso-signup.tsx";
 import SpaceTrash from "@/pages/space/space-trash.tsx";
 import UserApiKeys from "@/ee/api-key/pages/user-api-keys";
 import WorkspaceApiKeys from "@/ee/api-key/pages/workspace-api-keys";
@@ -58,6 +59,7 @@ export default function App() {
         <Route path={"/password-reset"} element={<PasswordReset />} />
         <Route path={"/login/mfa"} element={<MfaChallengePage />} />
         <Route path={"/login/mfa/setup"} element={<MfaSetupRequiredPage />} />
+        <Route path={"/sso/signup"} element={<SsoSignupPage />} />
 
         {!isCloud() && (
           <Route path={"/setup/register"} element={<SetupWorkspace />} />

@@ -5,6 +5,7 @@ import {
   IForgotPassword,
   ILogin,
   ILoginResponse,
+  IOidcSignupInfo,
   IPasswordReset,
   IRegister,
   ISetupWorkspace,
@@ -55,4 +56,16 @@ export async function verifyUserToken(data: IVerifyUserToken): Promise<any> {
 export async function getCollabToken(): Promise<ICollabToken> {
   const req = await api.post<ICollabToken>("/auth/collab-token");
   return req.data;
+}
+
+export async function getOidcSignupInfo(): Promise<IOidcSignupInfo> {
+  const response = await api.get<IOidcSignupInfo>("/sso/signup-info");
+  return response.data;
+}
+
+export async function completeOidcSignup(data: {
+  name: string;
+}): Promise<ILoginResponse> {
+  const response = await api.post<ILoginResponse>("/sso/complete-signup", data);
+  return response.data;
 }

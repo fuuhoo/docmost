@@ -37,6 +37,12 @@ export interface ICollabToken {
   token?: string;
 }
 
+export interface IOidcSignupInfo {
+  email: string;
+  name?: string;
+  error?: string;
+}
+
 export interface ILoginResponse {
   userHasMfa?: boolean;
   requiresMfaSetup?: boolean;

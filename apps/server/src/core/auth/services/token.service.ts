@@ -11,6 +11,7 @@ import {
   JwtCollabPayload,
   JwtExchangePayload,
   JwtMfaTokenPayload,
+  JwtOidcSignupPayload,
   JwtPayload,
   JwtType,
 } from '../dto/jwt-payload';
@@ -110,6 +111,29 @@ export class TokenService {
     };
 
     return this.jwtService.sign(payload, expiresIn ? { expiresIn } : {});
+  }
+
+  async generateOidcSignupToken(opts: {
+    providerUserId: string;
+    email: string;
+    workspaceId: string;
+    providerId: string;
+    name?: string;
+  }): Promise<string> {
+    const payload: JwtOidcSignupPayload = {
+      sub: opts.providerUserId,
+      email: opts.email,
+      workspaceId: opts.workspaceId,
+      providerId: opts.providerId,
+      name: opts.name,
+      type: JwtType.OIDC_SIGNUP,
+    };
+    return this.jwtService.sign(payload, { expiresIn: '5m' });
+  }
+
+  async verifyOidcSignupToken(token: string): Promise<JwtOidcSignupPayload> {
+    const payload = await this.verifyJwt(token, JwtType.OIDC_SIGNUP);
+    return payload as JwtOidcSignupPayload;
   }
 
   async verifyJwt(token: string, tokenType: string) {

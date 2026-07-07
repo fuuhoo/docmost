@@ -1,55 +1,31 @@
 import React, { useState } from "react";
 import { useDisclosure } from "@mantine/hooks";
-import { Button, Menu, Group } from "@mantine/core";
-import { IconChevronDown, IconLock, IconServer } from "@tabler/icons-react";
+import { Button, Group, Text } from "@mantine/core";
+import { IconLock, IconServer } from "@tabler/icons-react";
 import { useCreateSsoProviderMutation } from "@/ee/security/queries/security-query.ts";
 import { SSO_PROVIDER } from "@/ee/security/contants.ts";
 import { IAuthProvider } from "@/ee/security/types/security.types.ts";
 import SsoProviderModal from "@/ee/security/components/sso-provider-modal.tsx";
 import { OpenIdIcon } from "@/components/icons/openid-icon.tsx";
+import { useTranslation } from "react-i18next";
 
 export default function CreateSsoProvider() {
+  const { t } = useTranslation();
   const [opened, { open, close }] = useDisclosure(false);
   const [provider, setProvider] = useState<IAuthProvider | null>(null);
 
   const createSsoProviderMutation = useCreateSsoProviderMutation();
 
-  const handleCreateSAML = async () => {
+  const handleCreate = async (type: string, defaultName: string) => {
     try {
       const newProvider = await createSsoProviderMutation.mutateAsync({
-        type: SSO_PROVIDER.SAML,
-        name: "SAML",
+        type,
+        name: defaultName,
       });
       setProvider(newProvider);
       open();
     } catch (error) {
-      console.error("Failed to create SAML provider", error);
-    }
-  };
-
-  const handleCreateOIDC = async () => {
-    try {
-      const newProvider = await createSsoProviderMutation.mutateAsync({
-        type: SSO_PROVIDER.OIDC,
-        name: "OIDC",
-      });
-      setProvider(newProvider);
-      open();
-    } catch (error) {
-      console.error("Failed to create OIDC provider", error);
-    }
-  };
-
-  const handleCreateLDAP = async () => {
-    try {
-      const newProvider = await createSsoProviderMutation.mutateAsync({
-        type: SSO_PROVIDER.LDAP,
-        name: "LDAP",
-      });
-      setProvider(newProvider);
-      open();
-    } catch (error) {
-      console.error("Failed to create LDAP provider", error);
+      console.error(`Failed to create ${type} provider`, error);
     }
   };
 
@@ -57,42 +33,44 @@ export default function CreateSsoProvider() {
     <>
       <SsoProviderModal opened={opened} onClose={close} provider={provider} />
 
-      <Group justify="flex-end">
-        <Menu
-          transitionProps={{ transition: "pop-top-right" }}
-          position="bottom"
-          width={220}
-          withinPortal
-        >
-          <Menu.Target>
-            <Button rightSection={<IconChevronDown size={16} />} pr={12}>
-              Create SSO
-            </Button>
-          </Menu.Target>
+      <Group justify="space-between" align="flex-start" wrap="wrap">
+        <div>
+          <Text fw={500} size="sm">
+            {t("SSO providers")}
+          </Text>
+          <Text c="dimmed" size="xs">
+            {t("You can create multiple providers of the same type (e.g. multiple OIDC servers).")}
+          </Text>
+        </div>
 
-          <Menu.Dropdown>
-            <Menu.Item
-              onClick={handleCreateSAML}
-              leftSection={<IconLock size={16} />}
-            >
-              SAML
-            </Menu.Item>
+        <Group gap="xs" wrap="wrap">
+          <Button
+            variant="light"
+            size="sm"
+            leftSection={<IconLock size={16} />}
+            onClick={() => handleCreate(SSO_PROVIDER.SAML, "SAML")}
+          >
+            {t("Add SAML")}
+          </Button>
 
-            <Menu.Item
-              onClick={handleCreateOIDC}
-              leftSection={<OpenIdIcon size={16} />}
-            >
-              OpenID (OIDC)
-            </Menu.Item>
+          <Button
+            variant="light"
+            size="sm"
+            leftSection={<OpenIdIcon size={16} />}
+            onClick={() => handleCreate(SSO_PROVIDER.OIDC, "OIDC")}
+          >
+            {t("Add OpenID")}
+          </Button>
 
-            <Menu.Item
-              onClick={handleCreateLDAP}
-              leftSection={<IconServer size={16} />}
-            >
-              LDAP / Active Directory
-            </Menu.Item>
-          </Menu.Dropdown>
-        </Menu>
+          <Button
+            variant="light"
+            size="sm"
+            leftSection={<IconServer size={16} />}
+            onClick={() => handleCreate(SSO_PROVIDER.LDAP, "LDAP")}
+          >
+            {t("Add LDAP")}
+          </Button>
+        </Group>
       </Group>
     </>
   );

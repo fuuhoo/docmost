@@ -69,6 +69,7 @@ function redirectToLogin() {
     APP_ROUTE.AUTH.REGISTER,
     APP_ROUTE.AUTH.FORGOT_PASSWORD,
     APP_ROUTE.AUTH.PASSWORD_RESET,
+    "/sso/signup",
     "/invites",
   ];
   if (!exemptPaths.some((path) => window.location.pathname.startsWith(path))) {

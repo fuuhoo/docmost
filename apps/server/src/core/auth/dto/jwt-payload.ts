@@ -5,6 +5,7 @@ export enum JwtType {
   ATTACHMENT = 'attachment',
   MFA_TOKEN = 'mfa_token',
   API_KEY = 'api_key',
+  OIDC_SIGNUP = 'oidc_signup',
 }
 export type JwtPayload = {
   sub: string;
@@ -43,4 +44,13 @@ export type JwtApiKeyPayload = {
   workspaceId: string;
   apiKeyId: string;
   type: 'api_key';
+};
+
+export type JwtOidcSignupPayload = {
+  sub: string;
+  email: string;
+  workspaceId: string;
+  providerId: string;
+  name?: string;
+  type: 'oidc_signup';
 };

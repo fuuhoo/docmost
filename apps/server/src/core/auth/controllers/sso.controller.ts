@@ -1,12 +1,14 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
   Get,
   Logger,
   Param,
+  Post,
   Query,
   Req,
   Res,
-  UseGuards,
 } from '@nestjs/common';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { Public } from '../../../common/decorators/public.decorator';
@@ -46,7 +48,7 @@ export class SsoController {
         throw new Error('Invalid state parameter');
       }
 
-      const authToken = await this.ssoService.handleCallback(
+      const result = await this.ssoService.handleCallback(
         providerId,
         code,
         state,
@@ -54,7 +56,15 @@ export class SsoController {
       );
 
       const workspace = await this.ssoService.getWorkspaceById(workspaceId);
-      this.setAuthCookie(res, authToken);
+
+      if (result.type === 'signup') {
+        this.setOidcSignupCookie(res, result.signupToken);
+        const signupUrl = new URL('/sso/signup', this.domainService.getUrl(workspace?.hostname));
+        res.statusCode = 302;
+        return res.redirect(signupUrl.toString());
+      }
+
+      this.setAuthCookie(res, result.authToken);
       res.statusCode = 302;
       return res.redirect(this.domainService.getUrl(workspace?.hostname));
     } catch (error) {
@@ -89,7 +99,7 @@ export class SsoController {
         throw new Error('No workspaceId in state');
       }
 
-      const authToken = await this.ssoService.handleCallback(
+      const result = await this.ssoService.handleCallback(
         providerId,
         code,
         state,
@@ -97,7 +107,15 @@ export class SsoController {
       );
 
       const workspace = await this.ssoService.getWorkspaceById(workspaceId);
-      this.setAuthCookie(res, authToken);
+
+      if (result.type === 'signup') {
+        this.setOidcSignupCookie(res, result.signupToken);
+        const signupUrl = new URL('/sso/signup', this.domainService.getUrl(workspace?.hostname));
+        res.statusCode = 302;
+        return res.redirect(signupUrl.toString());
+      }
+
+      this.setAuthCookie(res, result.authToken);
       res.statusCode = 302;
       return res.redirect(this.domainService.getUrl(workspace?.hostname));
     } catch (error) {
@@ -106,6 +124,61 @@ export class SsoController {
       const errorUrl = new URL(this.domainService.getUrl());
       errorUrl.searchParams.set('error', 'oidc_failed');
       return res.redirect(errorUrl.toString());
+    }
+  }
+
+  @Public()
+  @Get('signup-info')
+  async signupInfo(
+    @Req() req: FastifyRequest,
+  ) {
+    const token = req.cookies?.oidcSignupToken;
+    if (!token) {
+      return { error: 'no_signup_token' };
+    }
+
+    try {
+      const payload = await this.ssoService.getSignupTokenPayload(token);
+      return { email: payload.email, name: payload.name };
+    } catch (error) {
+      this.logger.error('Failed to read signup token:', (error as Error).message);
+      return { error: 'invalid_signup_token' };
+    }
+  }
+
+  @Public()
+  @Post('complete-signup')
+  async completeSignup(
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) res: FastifyReply,
+    @Body() body: { name?: string },
+  ) {
+    const token = req.cookies?.oidcSignupToken;
+    if (!token) {
+      throw new BadRequestException('No signup session found. Please try logging in again.');
+    }
+
+    const name = body?.name?.trim();
+    if (!name) {
+      throw new BadRequestException('Name is required');
+    }
+    if (name.length > 50) {
+      throw new BadRequestException('Name must not exceed 50 characters');
+    }
+
+    try {
+      const user = await this.ssoService.completeSignup(token, name);
+      const authToken = await this.ssoService.generateAccessTokenForUser(user);
+
+      this.clearOidcSignupCookie(res);
+      this.setAuthCookie(res, authToken);
+
+      return { userHasMfa: false, requiresMfaSetup: false };
+    } catch (error) {
+      this.logger.error('OIDC complete signup error:', (error as Error).message);
+      throw new BadRequestException(
+        (error as Error).message || 'Failed to complete signup',
+      );
     }
   }
 
@@ -139,5 +212,18 @@ export class SsoController {
       expires: this.environmentService.getCookieExpiresIn(),
       secure: this.environmentService.isHttps(),
     });
+  }
+
+  private setOidcSignupCookie(res: FastifyReply, token: string) {
+    res.setCookie('oidcSignupToken', token, {
+      httpOnly: true,
+      path: '/',
+      expires: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+      secure: this.environmentService.isHttps(),
+    });
+  }
+
+  private clearOidcSignupCookie(res: FastifyReply) {
+    res.clearCookie('oidcSignupToken', { path: '/' });
   }
 }
