@@ -14,6 +14,8 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn('workspace_id', 'uuid', (col) =>
       col.references('workspaces.id').onDelete('cascade').notNull(),
     )
+    .addColumn('mail_status', 'varchar', (col) => col)
+    .addColumn('mail_error', 'text', (col) => col)
     .addColumn('created_at', 'timestamptz', (col) =>
       col.notNull().defaultTo(sql`now()`),
     )

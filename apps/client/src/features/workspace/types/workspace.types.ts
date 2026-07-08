@@ -46,6 +46,8 @@ export interface IInvitation {
   invitedById: string;
   createdAt: Date;
   enforceSso: boolean;
+  mailStatus?: 'sent' | 'failed' | null;
+  mailError?: string | null;
 }
 
 export interface IInvitationLink {

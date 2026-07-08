@@ -34,6 +34,7 @@ export default function WorkspaceInvitesTable() {
               <Table.Th>{t("Email")}</Table.Th>
               <Table.Th>{t("Role")}</Table.Th>
               <Table.Th>{t("Date")}</Table.Th>
+              <Table.Th>{t("Mail Status")}</Table.Th>
             </Table.Tr>
           </Table.Thead>
 
@@ -54,6 +55,19 @@ export default function WorkspaceInvitesTable() {
                 <Table.Td>{t(getUserRoleLabel(invitation.role))}</Table.Td>
 
                 <Table.Td>{timeAgo(invitation.createdAt)}</Table.Td>
+
+                <Table.Td>
+                  {invitation.mailStatus === 'sent' && <Text color="teal">{t('Sent')}</Text>}
+                  {invitation.mailStatus === 'failed' && (
+                    <div>
+                      <Text color="red">{t('Failed')}</Text>
+                      {invitation.mailError && (
+                        <Text fz="xs" c="dimmed">{invitation.mailError}</Text>
+                      )}
+                    </div>
+                  )}
+                  {!invitation.mailStatus && <Text c="dimmed">{t('Unknown')}</Text>}
+                </Table.Td>
 
                 <Table.Td>
                   {isAdmin && <InviteActionMenu invitationId={invitation.id} />}

@@ -51,7 +51,7 @@ export class WorkspaceInvitationService {
   async getInvitations(workspaceId: string, pagination: PaginationOptions) {
     let query = this.db
       .selectFrom('workspaceInvitations')
-      .select(['id', 'email', 'role', 'workspaceId', 'createdAt'])
+      .select(['id', 'email', 'role', 'workspaceId', 'createdAt', 'mailStatus', 'mailError'])
       .where('workspaceId', '=', workspaceId);
 
     if (pagination.query) {
@@ -396,10 +396,26 @@ export class WorkspaceInvitationService {
       inviteLink,
     });
 
-    await this.mailService.sendToQueue({
-      to: inviteeEmail,
-      subject: `${invitedByName} invited you to Docmost`,
-      template: emailTemplate,
-    });
+    // send and persist status
+    try {
+      await this.mailService.sendToQueue({
+        to: inviteeEmail,
+        subject: `${invitedByName} invited you to Docmost`,
+        template: emailTemplate,
+      });
+
+      await this.db
+        .updateTable('workspaceInvitations')
+        .set({ mailStatus: 'sent', mailError: null })
+        .where('id', '=', invitationId)
+        .execute();
+    } catch (err: any) {
+      this.logger.warn(`Failed to send invitation email to ${inviteeEmail}: ${err?.message || err}`);
+      await this.db
+        .updateTable('workspaceInvitations')
+        .set({ mailStatus: 'failed', mailError: String(err?.message || err) })
+        .where('id', '=', invitationId)
+        .execute();
+    }
   }
 }

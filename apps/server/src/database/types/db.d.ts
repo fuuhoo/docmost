@@ -332,6 +332,8 @@ export interface WorkspaceInvitations {
   invitedById: string | null;
   role: string;
   token: string;
+  mailStatus: string | null;
+  mailError: string | null;
   updatedAt: Generated<Timestamp>;
   workspaceId: string;
 }

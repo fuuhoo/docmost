@@ -36,13 +36,13 @@ export class MailService {
     this.logger.log(`Sending email from: ${sender} to: ${message.to}`);
     
     // Send email asynchronously to avoid blocking HTTP requests
-    this.mailDriver.sendMail({ from: sender, ...message })
-      .then(() => {
-        this.logger.log(`Email sent successfully to: ${message.to}`);
-      })
-      .catch((error) => {
-        this.logger.error(`Failed to send email to ${message.to}: ${error.message}`);
-      });
+    try {
+      await this.mailDriver.sendMail({ from: sender, ...message });
+      this.logger.log(`Email sent successfully to: ${message.to}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send email to ${message.to}: ${error?.message || error}`);
+      throw error;
+    }
   }
 
   async sendToQueue(message: MailMessage): Promise<void> {
