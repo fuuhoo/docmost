@@ -29,7 +29,9 @@ export class UserRepo {
     'locale',
     'timezone',
     'settings',
+    'invitedById',
     'lastLoginAt',
+    'lastActiveAt',
     'deactivatedAt',
     'createdAt',
     'updatedAt',
@@ -172,6 +174,32 @@ export class UserRepo {
     let query = this.db
       .selectFrom('users')
       .select(this.baseFields)
+      .select((eb) =>
+        sql`
+          CASE
+            WHEN users.invited_by_id IS NOT NULL THEN 'invite'
+            WHEN EXISTS (
+              SELECT 1
+              FROM auth_accounts
+              WHERE auth_accounts.user_id = users.id
+                AND auth_accounts.workspace_id = users.workspace_id
+            ) THEN 'oidc'
+            ELSE 'self'
+          END
+        `.as('account_source'),
+      )
+      .select((eb) =>
+        sql`
+          (
+            SELECT auth_providers.name
+            FROM auth_accounts
+            JOIN auth_providers ON auth_accounts.auth_provider_id = auth_providers.id
+            WHERE auth_accounts.user_id = users.id
+              AND auth_accounts.workspace_id = users.workspace_id
+            LIMIT 1
+          )
+        `.as('auth_provider_name'),
+      )
       .where('workspaceId', '=', workspaceId)
       .where('deletedAt', 'is', null);
 

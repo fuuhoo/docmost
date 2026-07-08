@@ -13,6 +13,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AuthWorkspace } from '../../common/decorators/auth-workspace.decorator';
 import { User, Workspace } from '@docmost/db/types/entity.types';
 import { WorkspaceRepo } from '@docmost/db/repos/workspace/workspace.repo';
+import { AuthAccountsRepo } from '@docmost/db/repos/auth/auth-accounts.repo';
 
 @UseGuards(JwtAuthGuard)
 @Controller('users')
@@ -20,6 +21,7 @@ export class UserController {
   constructor(
     private readonly userService: UserService,
     private readonly workspaceRepo: WorkspaceRepo,
+    private readonly authAccountsRepo: AuthAccountsRepo,
   ) {}
 
   @HttpCode(HttpStatus.OK)
@@ -40,7 +42,25 @@ export class UserController {
       hasLicenseKey: Boolean(licenseKey),
     };
 
-    return { user: authUser, workspace: workspaceInfo };
+    const accountSource = await this.getAccountSource(authUser, workspace.id);
+    return { user: { ...authUser, accountSource }, workspace: workspaceInfo };
+  }
+
+  private async getAccountSource(user: User, workspaceId: string) {
+    if (user.invitedById) {
+      return 'invite';
+    }
+
+    const authAccounts = await this.authAccountsRepo.findByUserId(
+      user.id,
+      workspaceId,
+    );
+
+    if (authAccounts.length > 0) {
+      return 'oidc';
+    }
+
+    return 'self';
   }
 
   @HttpCode(HttpStatus.OK)
@@ -50,6 +70,12 @@ export class UserController {
     @AuthUser() user: User,
     @AuthWorkspace() workspace: Workspace,
   ) {
-    return this.userService.update(updateUserDto, user.id, workspace);
+    const updatedUser = await this.userService.update(
+      updateUserDto,
+      user.id,
+      workspace,
+    );
+    const accountSource = await this.getAccountSource(updatedUser, workspace.id);
+    return { ...updatedUser, accountSource };
   }
 }

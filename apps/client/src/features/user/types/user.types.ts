@@ -9,6 +9,8 @@ export interface IUser {
   timezone: string;
   settings: IUserSettings;
   invitedById: string;
+  accountSource: 'invite' | 'oidc' | 'self';
+  authProviderName?: string;
   lastLoginAt: string;
   lastActiveAt: Date;
   locale: string;

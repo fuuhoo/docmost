@@ -60,6 +60,7 @@ export default function WorkspaceMembersTable() {
             <Table.Tr>
               <Table.Th>{t("User")}</Table.Th>
               <Table.Th>{t("Status")}</Table.Th>
+              <Table.Th>{t("Source")}</Table.Th>
               <Table.Th>{t("Role")}</Table.Th>
             </Table.Tr>
           </Table.Thead>
@@ -88,6 +89,15 @@ export default function WorkspaceMembersTable() {
                     <Badge variant="light">{t("Active")}</Badge>
                   </Table.Td>
                   <Table.Td>
+                    <Text size="xs" c="dimmed">
+                      {user.accountSource === 'invite'
+                        ? t('Invited')
+                        : user.accountSource === 'oidc'
+                        ? user.authProviderName || t('OIDC')
+                        : t('Self registered')}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
                     <RoleSelectMenu
                       roles={assignableUserRoles}
                       roleName={getUserRoleLabel(user.role)}
@@ -103,7 +113,7 @@ export default function WorkspaceMembersTable() {
                 </Table.Tr>
               ))
             ) : (
-              <NoTableResults colSpan={3} />
+              <NoTableResults colSpan={4} />
             )}
           </Table.Tbody>
         </Table>

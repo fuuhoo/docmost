@@ -16,7 +16,7 @@ export default function CreateSsoProvider() {
 
   const createSsoProviderMutation = useCreateSsoProviderMutation();
 
-  const handleCreate = async (type: string, defaultName: string) => {
+  const handleCreate = async (type: SSO_PROVIDER, defaultName: string) => {
     try {
       const newProvider = await createSsoProviderMutation.mutateAsync({
         type,

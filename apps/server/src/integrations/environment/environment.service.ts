@@ -23,6 +23,17 @@ export class EnvironmentService {
     return origin;
   }
 
+  getFrontendUrl(): string | undefined {
+    const raw = this.configService.get<string>('FRONTEND_URL');
+    if (!raw) return undefined;
+    try {
+      const { origin } = new URL(raw);
+      return origin;
+    } catch (err) {
+      return undefined;
+    }
+  }
+
   isHttps(): boolean {
     const appUrl = this.configService.get<string>('APP_URL');
     try {
@@ -116,23 +127,23 @@ export class EnvironmentService {
   }
 
   getMailDriver(): string {
-    return this.configService.get<string>('MAIL_DRIVER', 'log');
+    return this.configService.get<string>('MAIL_DRIVER', 'log')?.trim();
   }
 
   getMailFromAddress(): string {
-    return this.configService.get<string>('MAIL_FROM_ADDRESS');
+    return this.configService.get<string>('MAIL_FROM_ADDRESS')?.trim();
   }
 
   getMailFromName(): string {
-    return this.configService.get<string>('MAIL_FROM_NAME', 'Docmost');
+    return this.configService.get<string>('MAIL_FROM_NAME', 'Docmost')?.trim();
   }
 
   getSmtpHost(): string {
-    return this.configService.get<string>('SMTP_HOST');
+    return this.configService.get<string>('SMTP_HOST')?.trim();
   }
 
   getSmtpPort(): number {
-    return parseInt(this.configService.get<string>('SMTP_PORT'));
+    return parseInt(this.configService.get<string>('SMTP_PORT')?.trim());
   }
 
   getSmtpSecure(): boolean {
@@ -145,20 +156,21 @@ export class EnvironmentService {
   getSmtpIgnoreTLS(): boolean {
     const ignoretls = this.configService
       .get<string>('SMTP_IGNORETLS', 'false')
+      .trim()
       .toLowerCase();
     return ignoretls === 'true';
   }
 
   getSmtpUsername(): string {
-    return this.configService.get<string>('SMTP_USERNAME');
+    return this.configService.get<string>('SMTP_USERNAME')?.trim();
   }
 
   getSmtpPassword(): string {
-    return this.configService.get<string>('SMTP_PASSWORD');
+    return this.configService.get<string>('SMTP_PASSWORD')?.trim();
   }
 
   getPostmarkToken(): string {
-    return this.configService.get<string>('POSTMARK_TOKEN');
+    return this.configService.get<string>('POSTMARK_TOKEN')?.trim();
   }
 
   getDrawioUrl(): string {

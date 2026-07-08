@@ -285,7 +285,18 @@ export class SsoService {
       .executeTakeFirst();
 
     const hostname = workspace?.hostname;
-    const appUrl = this.domainService.getUrl(hostname);
+
+    // In development, allow overriding the frontend URL for OAuth callbacks
+    // so that the provider can redirect back to the client dev server while
+    // the backend still runs on its own port. FRONTEND_URL should be set to
+    // e.g. http://127.0.0.1:5173 in development.
+    let appUrl: string;
+    const frontendUrl = this.environmentService.getFrontendUrl?.();
+    if (this.environmentService.isDevelopment() && frontendUrl) {
+      appUrl = frontendUrl;
+    } else {
+      appUrl = this.domainService.getUrl(hostname);
+    }
 
     if (providerType === 'oidc') {
       return `${appUrl}/api/sso/oidc/${providerId}/callback`;
