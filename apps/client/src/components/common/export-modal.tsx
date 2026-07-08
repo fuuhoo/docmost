@@ -13,6 +13,7 @@ import { ExportFormat } from "@/features/page/types/page.types.ts";
 import { notifications } from "@mantine/notifications";
 import { exportSpace } from "@/features/space/services/space-service";
 import { useTranslation } from "react-i18next";
+import { useExportPage } from "@/features/page/hooks/use-export-page.ts";
 
 interface ExportModalProps {
   id: string;
@@ -27,22 +28,33 @@ export default function ExportModal({
   open,
   onClose,
 }: ExportModalProps) {
-  const [format, setFormat] = useState<ExportFormat>(ExportFormat.Markdown);
+  const [format, setFormat] = useState<ExportFormat>(ExportFormat.HTML);
   const [includeChildren, setIncludeChildren] = useState<boolean>(false);
   const [includeAttachments, setIncludeAttachments] = useState<boolean>(false);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const { t } = useTranslation();
+  const { exportPageToFormat } = useExportPage();
 
   const handleExport = async () => {
     setIsExporting(true);
     try {
       if (type === "page") {
-        await exportPage({
-          pageId: id,
-          format,
-          includeChildren,
-          includeAttachments,
-        });
+        // Use new export handler for Word/PDF, old one for HTML/Markdown
+        if (format === ExportFormat.DOCX || format === ExportFormat.PDF) {
+          await exportPageToFormat({
+            pageId: id,
+            format,
+            includeChildren,
+            includeAttachments,
+          });
+        } else {
+          await exportPage({
+            pageId: id,
+            format,
+            includeChildren,
+            includeAttachments,
+          });
+        }
       }
       if (type === "space") {
         await exportSpace({ spaceId: id, format, includeAttachments });
@@ -51,7 +63,7 @@ export default function ExportModal({
         message: t("Export successful"),
       });
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       notifications.show({
         message: "Export failed:" + err.response?.data.message,
         color: "red",
@@ -163,11 +175,13 @@ function ExportFormatSelection({ format, onChange }: ExportFormatSelection) {
       data={[
         { value: "markdown", label: "Markdown" },
         { value: "html", label: "HTML" },
+        { value: "docx", label: "Word (.docx)" },
+        { value: "pdf", label: "PDF" },
       ]}
       defaultValue={format}
       onChange={onChange}
-      styles={{ wrapper: { maxWidth: 120 } }}
-      comboboxProps={{ width: "120" }}
+      styles={{ wrapper: { maxWidth: 140 } }}
+      comboboxProps={{ width: "140" }}
       allowDeselect={false}
       withCheckIcon={false}
       aria-label={t("Select export format")}

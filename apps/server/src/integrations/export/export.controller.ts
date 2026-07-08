@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ExportService } from './export.service';
-import { ExportPageDto, ExportSpaceDto } from './dto/export-dto';
+import { ExportFormat, ExportPageDto, ExportSpaceDto } from './dto/export-dto';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { User } from '@docmost/db/types/entity.types';
 import SpaceAbilityFactory from '../../core/casl/abilities/space-ability.factory';
@@ -71,6 +71,79 @@ export class ExportController {
     });
 
     res.send(zipFileStream);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('pages/export/docx')
+  async exportPageToDocx(
+    @Body() dto: ExportPageDto,
+    @AuthUser() user: User,
+    @Res() res: FastifyReply,
+  ) {
+    const page = await this.pageRepo.findById(dto.pageId, {
+      includeContent: true,
+    });
+
+    if (!page || page.deletedAt) {
+      throw new NotFoundException('Page not found');
+    }
+
+    const ability = await this.spaceAbility.createForUser(user, page.spaceId);
+    if (ability.cannot(SpaceCaslAction.Read, SpaceCaslSubject.Page)) {
+      throw new ForbiddenException();
+    }
+
+    const { buffer, fileName } = await this.exportService.exportPageAsBuffer(
+      dto.pageId,
+      ExportFormat.DOCX,
+      dto.includeAttachments,
+    );
+
+    res.headers({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'Content-Disposition':
+        'attachment; filename="' + encodeURIComponent(fileName) + '"',
+    });
+
+    res.send(buffer);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('pages/export/pdf')
+  async exportPageToPdf(
+    @Body() dto: ExportPageDto,
+    @AuthUser() user: User,
+    @Res() res: FastifyReply,
+  ) {
+    const page = await this.pageRepo.findById(dto.pageId, {
+      includeContent: true,
+    });
+
+    if (!page || page.deletedAt) {
+      throw new NotFoundException('Page not found');
+    }
+
+    const ability = await this.spaceAbility.createForUser(user, page.spaceId);
+    if (ability.cannot(SpaceCaslAction.Read, SpaceCaslSubject.Page)) {
+      throw new ForbiddenException();
+    }
+
+    const { buffer, fileName } = await this.exportService.exportPageAsBuffer(
+      dto.pageId,
+      ExportFormat.PDF,
+      dto.includeAttachments,
+    );
+
+    res.headers({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition':
+        'attachment; filename="' + encodeURIComponent(fileName) + '"',
+    });
+
+    res.send(buffer);
   }
 
   @UseGuards(JwtAuthGuard)

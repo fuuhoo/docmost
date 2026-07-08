@@ -37,10 +37,14 @@ import {
   getProsemirrorContent,
 } from '../../common/helpers/prosemirror/utils';
 import { htmlToMarkdown } from '@docmost/editor-ext';
+import { DocxExporter } from './converters/docx.converter';
+import { PdfExporter } from './converters/pdf.converter';
 
 @Injectable()
 export class ExportService {
   private readonly logger = new Logger(ExportService.name);
+  private readonly docxExporter = new DocxExporter();
+  private readonly pdfExporter = new PdfExporter();
 
   constructor(
     private readonly pageRepo: PageRepo,
@@ -92,7 +96,66 @@ export class ExportService {
       return htmlToMarkdown(newPageHtml);
     }
 
+    if (format === ExportFormat.DOCX) {
+      return this.docxExporter.exportToDocx(
+        prosemirrorJson,
+        getPageTitle(page.title),
+      );
+    }
+
+    if (format === ExportFormat.PDF) {
+      return this.pdfExporter.exportToPdf(
+        prosemirrorJson,
+        getPageTitle(page.title),
+      );
+    }
+
     return;
+  }
+
+  async exportPageAsBuffer(
+    pageId: string,
+    format: ExportFormat,
+    includeAttachments?: boolean,
+  ): Promise<{ buffer: Buffer; fileName: string }> {
+    const page = await this.pageRepo.findById(pageId, {
+      includeContent: true,
+    });
+
+    if (!page || page.deletedAt) {
+      throw new NotFoundException('Page not found');
+    }
+
+    let prosemirrorJson = await this.turnPageMentionsToLinks(
+      getProsemirrorContent(page.content),
+      page.workspaceId,
+    );
+
+    if (includeAttachments) {
+      const attachmentIds = getAttachmentIds(prosemirrorJson);
+      if (attachmentIds.length > 0) {
+        this.logger.warn(
+          'Attachments cannot be embedded into single DOCX/PDF exports yet. They will remain as links.',
+        );
+      }
+    }
+
+    const buffer = await this.exportPage(
+      format,
+      { ...page, content: prosemirrorJson },
+      true,
+    );
+
+    if (!Buffer.isBuffer(buffer)) {
+      throw new BadRequestException(
+        'Invalid export format for direct file export',
+      );
+    }
+
+    const extension = getExportExtension(format);
+    const fileName = `${getPageTitle(page.title)}${extension}`;
+
+    return { buffer, fileName };
   }
 
   async exportPages(
@@ -113,7 +176,7 @@ export class ExportService {
       const page = await this.pageRepo.findById(pageId, {
         includeContent: true,
       });
-      if (page){
+      if (page) {
         pages = [page];
       }
     }
@@ -384,7 +447,7 @@ export class ExportService {
             page.space.slug,
           );
         } else {
-          // if page is not found, default to  the node label and slugId
+          // if page is not found, default to the node label and slugId
           replaceMentionWithLink(node, pos, label, slugId, 'undefined');
         }
       }
@@ -399,3 +462,4 @@ export class ExportService {
     return updatedDoc.toJSON();
   }
 }
+
