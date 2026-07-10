@@ -128,6 +128,55 @@ export default function KityminderView(props: NodeViewProps) {
     };
   }, [opened, handleIframeMessage]);
 
+  /**
+   * 将 SVG 字符串渲染为 PNG Blob，用于 Word 导出兼容
+   */
+  const svgToPngBlob = async (svgString: string): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      try {
+        const svgBlob = new Blob([svgString], { type: "image/svg+xml" });
+        const url = URL.createObjectURL(svgBlob);
+        const img = document.createElement("img");
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        if (!ctx) {
+          URL.revokeObjectURL(url);
+          resolve(null);
+          return;
+        }
+
+        img.onload = () => {
+          // 按设备像素比或固定缩放保证清晰度，最大宽度 1200
+          const maxWidth = 1200;
+          const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(url);
+
+          canvas.toBlob(
+            (blob) => {
+              resolve(blob);
+            },
+            "image/png",
+            1.0
+          );
+        };
+
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve(null);
+        };
+
+        img.src = url;
+      } catch (error) {
+        console.error("Failed to convert SVG to PNG:", error);
+        resolve(null);
+      }
+    });
+  };
+
   const handleSaveComplete = async (data: any, svg: string | null) => {
     if (!saveRequestedRef.current) return;
     saveRequestedRef.current = false;
@@ -147,13 +196,15 @@ export default function KityminderView(props: NodeViewProps) {
       });
       const jsonFile = new File([jsonBlob], jsonFileName);
 
-      // 保存 SVG 预览
-      let svgAttachment: IAttachment | null = null;
+      // 保存 PNG 预览（从 SVG 渲染，确保 Word 导出兼容）
+      let previewAttachment: IAttachment | null = null;
       if (svg) {
-        const svgFileName = "mindmap.preview.svg";
-        const svgBlob = new Blob([svg], { type: "image/svg+xml" });
-        const svgFile = new File([svgBlob], svgFileName);
-        svgAttachment = await uploadFile(svgFile, pageId);
+        const pngBlob = await svgToPngBlob(svg);
+        if (pngBlob) {
+          const pngFileName = "mindmap.preview.png";
+          const pngFile = new File([pngBlob], pngFileName, { type: "image/png" });
+          previewAttachment = await uploadFile(pngFile, pageId);
+        }
       }
 
       let jsonAttachment: IAttachment | null = null;
@@ -163,9 +214,9 @@ export default function KityminderView(props: NodeViewProps) {
         jsonAttachment = await uploadFile(jsonFile, pageId);
       }
 
-      const newSrc = svgAttachment
-        ? `/api/files/${svgAttachment.id}/${svgAttachment.fileName}?t=${new Date(svgAttachment.updatedAt).getTime()}`
-        : src; // SVG 导出失败时保留原 src
+      const newSrc = previewAttachment
+        ? `/api/files/${previewAttachment.id}/${previewAttachment.fileName}?t=${new Date(previewAttachment.updatedAt).getTime()}`
+        : src; // 预览图导出失败时保留原 src
 
       updateAttributes({
         src: newSrc,

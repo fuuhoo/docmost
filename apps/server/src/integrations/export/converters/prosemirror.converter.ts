@@ -1,6 +1,6 @@
 import { Node } from '@tiptap/pm/model';
-import { jsonToNode } from '../../collaboration/collaboration.util';
-import { isAttachmentNode } from '../../common/helpers/prosemirror/utils';
+import { jsonToNode } from '../../../collaboration/collaboration.util';
+import { isAttachmentNode } from '../../../common/helpers/prosemirror/utils';
 
 /**
  * Utility class for converting ProseMirror documents to various formats

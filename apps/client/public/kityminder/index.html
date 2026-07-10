@@ -192,7 +192,7 @@
 				return null;
 			}
 			
-			// 克隆 SVG
+			// 克隆 SVG，确保 defs 等引用资源被保留
 			const clonedSvg = svgElement.cloneNode(true);
 			
 			// 获取边界框（包含 x, y 偏移）
@@ -206,10 +206,15 @@
 			
 			// 添加边距，防止内容贴边
 			const padding = 10;
-			const viewBoxX = bbox.x - padding;
-			const viewBoxY = bbox.y - padding;
-			const viewBoxW = bbox.width + padding * 2;
-			const viewBoxH = bbox.height + padding * 2;
+			const viewBoxX = Math.round(bbox.x - padding);
+			const viewBoxY = Math.round(bbox.y - padding);
+			const viewBoxW = Math.round(bbox.width + padding * 2);
+			const viewBoxH = Math.round(bbox.height + padding * 2);
+			
+			// 确保 xmlns 命名空间存在，否则外部工具可能无法解析
+			if (!clonedSvg.getAttribute('xmlns')) {
+				clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+			}
 			
 			// 正确设置 viewBox：保留内容的实际偏移位置
 			clonedSvg.setAttribute('width', viewBoxW);
@@ -219,6 +224,16 @@
 			clonedSvg.style.width = '';
 			clonedSvg.style.height = '';
 			
+			// 统一替换字体为通用中文字体回退栈，避免在 Linux/服务器端渲染时因缺少
+			// 微软雅黑/宋体等字体而出现方块或乱码
+			const safeFontFamily = 'Arial, "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "WenQuanYi Micro Hei", "Hiragino Sans GB", sans-serif';
+			clonedSvg.style.fontFamily = safeFontFamily;
+			clonedSvg.setAttribute('font-family', safeFontFamily);
+			clonedSvg.querySelectorAll('text, g').forEach(function(el) {
+				el.style.fontFamily = safeFontFamily;
+				el.setAttribute('font-family', safeFontFamily);
+			});
+
 			// 序列化为字符串
 			const serializer = new XMLSerializer();
 			let svgString = serializer.serializeToString(clonedSvg);

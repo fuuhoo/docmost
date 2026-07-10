@@ -217,12 +217,14 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
             {t("Export")}
           </Menu.Item>
 
-          <Menu.Item
-            leftSection={<IconPrinter size={16} />}
-            onClick={handlePrint}
-          >
-            {t("Print PDF")}
-          </Menu.Item>
+          {false && (
+            <Menu.Item
+              leftSection={<IconPrinter size={16} />}
+              onClick={handlePrint}
+            >
+              {t("Print PDF")}
+            </Menu.Item>
+          )}
 
           {!readOnly && (
             <>

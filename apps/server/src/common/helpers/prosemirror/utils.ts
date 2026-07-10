@@ -80,8 +80,15 @@ export function isAttachmentNode(nodeType: string) {
     'video',
     'excalidraw',
     'drawio',
+    'kityminder',
   ];
   return attachmentNodeTypes.includes(nodeType);
+}
+
+function extractAttachmentIdFromSrc(src: string): string | null {
+  if (!src) return null;
+  const match = src.match(/\/api\/files\/([0-9a-fA-F-]{36})\//);
+  return match?.[1] || null;
 }
 
 export function getAttachmentIds(prosemirrorJson: any) {
@@ -90,9 +97,19 @@ export function getAttachmentIds(prosemirrorJson: any) {
 
   doc?.descendants((node: Node) => {
     if (isAttachmentNode(node.type.name)) {
-      if (node.attrs.attachmentId && isValidUUID(node.attrs.attachmentId)) {
-        if (!attachmentIds.includes(node.attrs.attachmentId)) {
-          attachmentIds.push(node.attrs.attachmentId);
+      let attachmentId: string | null = null;
+      if (node.type.name === 'kityminder') {
+        // For kityminder, src is the SVG preview image attachment, while
+        // attachmentId points to the JSON data file. Use both for export.
+        attachmentId =
+          extractAttachmentIdFromSrc(node.attrs.src) || node.attrs.attachmentId;
+      } else {
+        attachmentId = node.attrs.attachmentId;
+      }
+
+      if (attachmentId && isValidUUID(attachmentId)) {
+        if (!attachmentIds.includes(attachmentId)) {
+          attachmentIds.push(attachmentId);
         }
       }
     }

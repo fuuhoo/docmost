@@ -61,6 +61,11 @@ export default function DrawioView(props: NodeViewProps) {
   };
 
   const handleSave = async (data: EventSave) => {
+    // If the save is triggered by another event, then do nothing
+    if (data.parentEvent !== "save") {
+      return;
+    }
+
     const svgString = decodeBase64ToSvgString(data.xml);
 
     const fileName = "diagram.drawio.svg";
@@ -106,10 +111,6 @@ export default function DrawioView(props: NodeViewProps) {
                   noSaveBtn: true,
                 }}
                 onSave={(data: EventSave) => {
-                  // If the save is triggered by another event, then do nothing
-                  if (data.parentEvent !== "save") {
-                    return;
-                  }
                   handleSave(data);
                 }}
                 onClose={(data: EventExit) => {

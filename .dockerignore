@@ -4,3 +4,16 @@ dist
 /data
 .env*
 .nx
+.vscode
+.github
+*.log
+*.md
+!README.md
+coverage
+.nyc_output
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+*.swo
+*~

@@ -1,4 +1,4 @@
-import PDFDocument from 'pdfkit';
+import * as PDFDocument from 'pdfkit';
 import { Logger } from '@nestjs/common';
 
 /**

@@ -112,7 +112,7 @@ async function bootstrap() {
   const host = process.env.HOST || '0.0.0.0';
   await app.listen(port, host, () => {
     logger.log(
-      `Listening on http://127.0.0.1:${port} / ${process.env.APP_URL}`,
+      `Listening on http://${host}:${port} / ${process.env.APP_URL}`,
     );
   });
 }

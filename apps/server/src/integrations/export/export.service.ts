@@ -97,8 +97,12 @@ export class ExportService {
     }
 
     if (format === ExportFormat.DOCX) {
-      return this.docxExporter.exportToDocx(
+      const jsonWithEmbeddedImages = await this.embedAttachmentsAsBase64(
         prosemirrorJson,
+        page.spaceId,
+      );
+      return this.docxExporter.exportToDocx(
+        jsonWithEmbeddedImages,
         getPageTitle(page.title),
       );
     }
@@ -337,6 +341,140 @@ export class ExportService {
     };
 
     zip.file('docmost-metadata.json', JSON.stringify(metadata, null, 2));
+  }
+
+  private async embedAttachmentsAsBase64(
+    prosemirrorJson: any,
+    spaceId: string,
+  ): Promise<any> {
+    if (!prosemirrorJson?.content || prosemirrorJson.content.length === 0) {
+      return prosemirrorJson;
+    }
+
+    const attachmentIds = new Set<string>();
+    this.collectAttachmentIds(prosemirrorJson, attachmentIds);
+
+    if (attachmentIds.size === 0) {
+      return prosemirrorJson;
+    }
+
+    const attachments = await this.db
+      .selectFrom('attachments')
+      .select(['id', 'filePath', 'mimeType', 'fileName'])
+      .where('id', 'in', Array.from(attachmentIds))
+      .where('spaceId', '=', spaceId)
+      .execute();
+
+    const attachmentMap = new Map<
+      string,
+      { filePath: string; mimeType: string; fileName: string }
+    >();
+    for (const attachment of attachments) {
+      attachmentMap.set(attachment.id, attachment);
+    }
+
+    const cloned = JSON.parse(JSON.stringify(prosemirrorJson));
+    await this.replaceAttachmentSrcWithBase64(cloned, attachmentMap);
+    return cloned;
+  }
+
+  private extractAttachmentIdFromSrc(src: string): string | null {
+    if (!src) return null;
+    const match = src.match(/\/api\/files\/([0-9a-fA-F-]{36})\//);
+    return match?.[1] || null;
+  }
+
+  private collectAttachmentIds(block: any, ids: Set<string>) {
+    if (!block) return;
+
+      if (['image', 'excalidraw', 'drawio', 'kityminder', 'embed'].includes(block.type)) {
+        let attachmentId: string | null = null;
+        if (block.type === 'kityminder') {
+          // For kityminder, src is the preview image attachment, while
+          // attachmentId points to the JSON data file. Use the preview for export.
+          attachmentId = this.extractAttachmentIdFromSrc(block.attrs?.src) || block.attrs?.attachmentId;
+          this.logger.debug(`[KityMinder export] collectAttachmentId: src=${block.attrs?.src?.substring(0, 120)}, extractedAttachmentId=${attachmentId}`);
+        } else {
+          attachmentId = block.attrs?.attachmentId || this.extractAttachmentIdFromSrc(block.attrs?.src);
+        }
+        if (attachmentId && this.isValidUUID(attachmentId) && !ids.has(attachmentId)) {
+          ids.add(attachmentId);
+        }
+      }
+
+    if (Array.isArray(block.content)) {
+      for (const child of block.content) {
+        this.collectAttachmentIds(child, ids);
+      }
+    }
+  }
+
+  private async replaceAttachmentSrcWithBase64(
+    block: any,
+    attachmentMap: Map<string, { filePath: string; mimeType: string; fileName: string }>,
+  ) {
+    if (!block) return;
+
+      if (['image', 'excalidraw', 'drawio', 'kityminder', 'embed'].includes(block.type)) {
+        let attachmentId: string | null = null;
+        if (block.type === 'kityminder') {
+          // For kityminder, src is the preview image attachment, while
+          // attachmentId points to the JSON data file. Use the preview for export.
+          attachmentId = this.extractAttachmentIdFromSrc(block.attrs?.src) || block.attrs?.attachmentId;
+          this.logger.debug(`[KityMinder export] replaceAttachmentSrc: src=${block.attrs?.src?.substring(0, 120)}, extractedAttachmentId=${attachmentId}`);
+        } else {
+          attachmentId = block.attrs?.attachmentId || this.extractAttachmentIdFromSrc(block.attrs?.src);
+        }
+        if (attachmentId && attachmentMap.has(attachmentId)) {
+          const attachment = attachmentMap.get(attachmentId);
+          try {
+            const fileBuffer = await this.storageService.read(attachment.filePath);
+            const mimeType = attachment.mimeType || this.guessMimeType(attachment.fileName);
+            const base64 = fileBuffer.toString('base64');
+            const oldSrc = block.attrs.src;
+            block.attrs.src = `data:${mimeType};base64,${base64}`;
+            block.attrs.attachmentId = attachmentId;
+            this.logger.debug(`[KityMinder export] Embedded attachment ${attachmentId} as base64 for ${block.type}: mimeType=${mimeType}, oldSrc=${oldSrc?.substring(0, 80)}, newSrc=${block.attrs.src?.substring(0, 120)}`);
+          } catch (err) {
+            this.logger.error(`[KityMinder export] Failed to read attachment ${attachmentId}:`, err);
+          }
+        } else if (attachmentId) {
+          this.logger.warn(`[KityMinder export] Attachment ${attachmentId} not found for ${block.type}`);
+        } else {
+          this.logger.debug(`[KityMinder export] No attachmentId for ${block.type}, src: ${block.attrs?.src}`);
+        }
+      }
+
+    if (Array.isArray(block.content)) {
+      for (const child of block.content) {
+        await this.replaceAttachmentSrcWithBase64(child, attachmentMap);
+      }
+    }
+  }
+
+  private isValidUUID(id: string): boolean {
+    return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/i.test(id);
+  }
+
+  private guessMimeType(fileName: string): string {
+    if (!fileName) return 'image/png';
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    switch (ext) {
+      case 'png':
+        return 'image/png';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'gif':
+        return 'image/gif';
+      case 'bmp':
+        return 'image/bmp';
+      case 'svg':
+      case 'svgz':
+        return 'image/svg+xml';
+      default:
+        return 'image/png';
+    }
   }
 
   async zipAttachments(prosemirrorJson: any, spaceId: string, zip: JSZip) {

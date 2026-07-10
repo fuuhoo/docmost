@@ -80,7 +80,8 @@ export function getFileImportSizeLimit() {
 }
 
 export function getDrawioUrl() {
-  return getConfigValue("DRAWIO_URL", "https://embed.diagrams.net");
+  const url = getConfigValue("DRAWIO_URL", "https://embed.diagrams.net");
+  return url || "https://embed.diagrams.net";
 }
 
 export function getBillingTrialDays() {
