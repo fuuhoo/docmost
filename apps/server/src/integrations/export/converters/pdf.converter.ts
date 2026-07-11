@@ -2,6 +2,8 @@ import * as PDFDocument from 'pdfkit';
 import { Logger } from '@nestjs/common';
 import * as sharp from 'sharp';
 import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 
 /**
@@ -9,17 +11,19 @@ import * as fs from 'fs';
  */
 export class PdfExporter {
   private readonly logger = new Logger(PdfExporter.name);
-  private readonly fonts: { regular: Buffer; bold: Buffer } | null;
+  private fonts: { regular: Buffer; bold: Buffer } | null;
+  private readonly downloadedFontDir: string;
 
   constructor() {
-    this.fonts = this.loadCjkFonts();
+    this.downloadedFontDir = path.join(os.tmpdir(), 'docmost-fonts');
+    this.fonts = this.findLocalCjkFonts();
   }
 
-  private loadCjkFonts(): { regular: Buffer; bold: Buffer } | null {
+  private findLocalCjkFonts(): { regular: Buffer; bold: Buffer } | null {
     // Only OTF/TTF single fonts are accepted. pdfkit cannot safely embed TTC
     // (TrueType Collections) because its createSubset path fails on collections.
     const candidates = [
-      // Lightweight OTF fonts downloaded at Docker build time
+      // Lightweight OTF fonts downloaded at Docker build time or locally
       '/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf',
       '/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.ttf',
       '/usr/share/fonts/opentype/noto/NotoSansSC-Regular.otf',
@@ -28,12 +32,14 @@ export class PdfExporter {
       '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttf',
       '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttf',
       '/usr/share/fonts/noto/NotoSansCJK-Regular.ttf',
+      path.join(this.downloadedFontDir, 'NotoSansCJKsc-Regular.otf'),
+      path.join(this.downloadedFontDir, 'NotoSansCJKsc-Regular.ttf'),
     ];
 
     const regularPath = candidates.find((p) => fs.existsSync(p));
     if (!regularPath) {
       this.logger.warn(
-        'No OTF/TTF CJK font found. PDF Chinese text may render as garbled characters.',
+        'No local OTF/TTF CJK font found. Will try to download one for PDF export.',
       );
       return null;
     }
@@ -46,6 +52,8 @@ export class PdfExporter {
       '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttf',
       '/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttf',
       '/usr/share/fonts/noto/NotoSansCJK-Bold.ttf',
+      path.join(this.downloadedFontDir, 'NotoSansCJKsc-Bold.otf'),
+      path.join(this.downloadedFontDir, 'NotoSansCJKsc-Bold.ttf'),
     ];
     const boldPath = boldCandidates.find((p) => fs.existsSync(p));
 
@@ -67,6 +75,45 @@ export class PdfExporter {
     }
   }
 
+  private async ensureCjkFonts(): Promise<{ regular: Buffer; bold: Buffer } | null> {
+    if (this.fonts) {
+      return this.fonts;
+    }
+
+    const fontUrlBase =
+      'https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese';
+    const regularUrl = `${fontUrlBase}/NotoSansCJKsc-Regular.otf`;
+    const boldUrl = `${fontUrlBase}/NotoSansCJKsc-Bold.otf`;
+
+    const regularPath = path.join(this.downloadedFontDir, 'NotoSansCJKsc-Regular.otf');
+    const boldPath = path.join(this.downloadedFontDir, 'NotoSansCJKsc-Bold.otf');
+
+    try {
+      this.logger.log(`[PDF font] Downloading CJK fonts to ${this.downloadedFontDir}`);
+      await fs.promises.mkdir(this.downloadedFontDir, { recursive: true });
+      await this.downloadFile(regularUrl, regularPath);
+      await this.downloadFile(boldUrl, boldPath);
+      this.logger.log('[PDF font] CJK fonts downloaded successfully');
+
+      const regular = await fs.promises.readFile(regularPath);
+      const bold = await fs.promises.readFile(boldPath);
+      return { regular, bold };
+    } catch (err) {
+      this.logger.error('[PDF font] Failed to download CJK fonts', err);
+      return null;
+    }
+  }
+
+  private async downloadFile(url: string, dest: string): Promise<void> {
+    this.logger.log(`[PDF font] Downloading ${url}`);
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to download ${url}: ${response.status}`);
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    await fs.promises.writeFile(dest, buffer);
+  }
+
   private applyFont(doc: PDFDocument, bold = false): void {
     if (this.fonts) {
       // Pass the font file buffer to pdfkit; pdfkit uses fontkit internally to
@@ -84,6 +131,8 @@ export class PdfExporter {
     prosemirrorJson: any,
     title?: string,
   ): Promise<Buffer> {
+    this.fonts = await this.ensureCjkFonts();
+
     try {
       return new Promise((resolve, reject) => {
         const chunks: Buffer[] = [];
