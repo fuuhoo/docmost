@@ -70,8 +70,7 @@ export class PdfExporter {
   private applyFont(doc: PDFDocument, bold = false): void {
     if (this.fonts) {
       // Pass the font file buffer to pdfkit; pdfkit uses fontkit internally to
-      // parse the font (including TrueType Collections, where it picks the
-      // first sub-font).
+      // parse the font. Only OTF/TTF single fonts are accepted.
       doc.font(bold ? this.fonts.bold : this.fonts.regular);
     } else {
       doc.font(bold ? 'Helvetica-Bold' : 'Helvetica');
@@ -233,6 +232,7 @@ export class PdfExporter {
 
   private addBulletList(doc: PDFDocument, block: any): void {
     const indent = 20;
+    this.applyFont(doc, false);
 
     if (block.content) {
       for (const item of block.content) {
@@ -252,6 +252,7 @@ export class PdfExporter {
   private addOrderedList(doc: PDFDocument, block: any): void {
     const indent = 20;
     let index = 1;
+    this.applyFont(doc, false);
 
     if (block.content) {
       for (const item of block.content) {
@@ -278,6 +279,7 @@ export class PdfExporter {
       doc.fontSize(9).text(`[${language}]`, { color: '#666666' });
     }
 
+    this.applyFont(doc, false);
     doc.save();
     const boxHeight = doc.heightOfString(text, { width: doc.page.width - 100 }) + 20;
     doc
@@ -311,8 +313,6 @@ export class PdfExporter {
       oblique: true,
     });
 
-    this.applyFont(doc, false);
-    doc.fontSize(11);
     doc.restore();
     doc.moveDown(0.3);
   }
@@ -378,6 +378,7 @@ export class PdfExporter {
     if (rows[0]) {
       let x = doc.x;
       for (const cell of rows[0]) {
+        this.applyFont(doc, true);
         doc.text(cell, x + 5, y + 5, {
           width: colWidth - 10,
           height: rowHeight - 10,
@@ -404,6 +405,7 @@ export class PdfExporter {
       let x = doc.x;
 
       for (const cell of rows[i]) {
+        this.applyFont(doc, false);
         doc.text(cell, x + 5, y + 5, {
           width: colWidth - 10,
           height: rowHeight - 10,
