@@ -1,19 +1,17 @@
-# ========== 字体下载阶段（独立，避免多阶段重复下载） ==========
+# ========== 字体下载阶段（使用 BusyBox wget，避免 apk 安装 curl） ==========
 FROM node:22-alpine AS font-downloader
-RUN apk add --no-cache curl && \
-    mkdir -p /fonts && \
-    curl -fsSL -o /fonts/NotoSansCJKsc-Regular.otf \
+RUN mkdir -p /fonts && \
+    wget -qO /fonts/NotoSansCJKsc-Regular.otf \
         https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf && \
-    curl -fsSL -o /fonts/NotoSansCJKsc-Bold.otf \
+    wget -qO /fonts/NotoSansCJKsc-Bold.otf \
         https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Bold.otf
 
 # ========== 构建阶段（含完整依赖） ==========
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-# 安装构建工具（curl 用于字体下载）
-RUN apk add --no-cache curl && \
-    npm install -g pnpm@10.4.0
+# 安装 pnpm 即可，无需 curl
+RUN npm install -g pnpm@10.4.0
 
 # 复制依赖描述文件（利用缓存）
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
@@ -24,9 +22,6 @@ COPY packages/editor-ext/package.json ./packages/editor-ext/
 
 # 安装全部依赖（构建需要 devDependencies）
 RUN pnpm install --frozen-lockfile
-
-# 复制字体到构建阶段（pdfkit 构建时可用）
-COPY --from=font-downloader /fonts /usr/share/fonts/opentype/noto
 
 # 复制源码并构建
 COPY . .
@@ -58,8 +53,9 @@ LABEL org.opencontainers.image.source="https://github.com/fuuhoo/docmost"
 
 WORKDIR /app
 
-# 运行阶段只保留 ca-certificates（HTTPS 请求需要），无需 curl
-RUN apk add --no-cache ca-certificates
+# 设置国内 Alpine 镜像源，避免 apk 官方源超时；只保留 ca-certificates（HTTPS 需要）
+RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.aliyun.com|g' /etc/apk/repositories && \
+    apk add --no-cache ca-certificates
 
 # 复制字体
 COPY --from=font-downloader --chown=node:node /fonts /usr/share/fonts/opentype/noto
