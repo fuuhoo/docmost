@@ -108,8 +108,12 @@ export class ExportService {
     }
 
     if (format === ExportFormat.PDF) {
-      return this.pdfExporter.exportToPdf(
+      const jsonWithEmbeddedImages = await this.embedAttachmentsAsBase64(
         prosemirrorJson,
+        page.spaceId,
+      );
+      return this.pdfExporter.exportToPdf(
+        jsonWithEmbeddedImages,
         getPageTitle(page.title),
       );
     }

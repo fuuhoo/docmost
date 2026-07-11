@@ -1,5 +1,6 @@
 import * as PDFDocument from 'pdfkit';
 import { Logger } from '@nestjs/common';
+import * as sharp from 'sharp';
 
 /**
  * Convert ProseMirror JSON to PDF format
@@ -48,13 +49,19 @@ export class PdfExporter {
         doc.fontSize(11).font('Helvetica');
 
         // Process content
-        if (prosemirrorJson.content) {
-          for (const block of prosemirrorJson.content) {
-            this.processBlock(doc, block);
+        (async () => {
+          try {
+            if (prosemirrorJson.content) {
+              for (const block of prosemirrorJson.content) {
+                await this.processBlock(doc, block);
+              }
+            }
+            doc.end();
+          } catch (error) {
+            this.logger.error('Error processing PDF content:', error);
+            reject(error);
           }
-        }
-
-        doc.end();
+        })();
       });
     } catch (error) {
       this.logger.error('Error exporting to PDF:', error);
@@ -62,14 +69,14 @@ export class PdfExporter {
     }
   }
 
-  private processBlock(doc: PDFDocument, block: any): void {
+  private async processBlock(doc: PDFDocument, block: any): Promise<void> {
     switch (block.type) {
       case 'heading':
         this.addHeading(doc, block);
         break;
 
       case 'paragraph':
-        this.addParagraph(doc, block);
+        await this.addParagraph(doc, block);
         break;
 
       case 'bulletList':
@@ -94,6 +101,14 @@ export class PdfExporter {
 
       case 'table':
         this.addTable(doc, block);
+        break;
+
+      case 'image':
+      case 'excalidraw':
+      case 'drawio':
+      case 'kityminder':
+      case 'embed':
+        await this.addImage(doc, block);
         break;
 
       default:
@@ -125,15 +140,25 @@ export class PdfExporter {
     doc.moveDown(0.3);
   }
 
-  private addParagraph(doc: PDFDocument, block: any): void {
-    const text = this.extractBlockText(block);
+  private async addParagraph(doc: PDFDocument, block: any): Promise<void> {
+    if (!block.content || block.content.length === 0) {
+      return;
+    }
 
-    if (text.trim()) {
-      doc.fontSize(11).font('Helvetica').text(text, {
-        align: 'left',
-        wordBreak: true,
-      });
-      doc.moveDown(0.2);
+    const inlineNodes = await this.createInlineNodes(block.content);
+
+    if (inlineNodes.length > 0) {
+      for (const node of inlineNodes) {
+        if (node.type === 'text') {
+          doc.fontSize(11).font('Helvetica').text(node.text, {
+            align: 'left',
+            wordBreak: true,
+          });
+          doc.moveDown(0.2);
+        } else if (node.type === 'image') {
+          await this.addImage(doc, node.block);
+        }
+      }
     }
   }
 
@@ -318,6 +343,132 @@ export class PdfExporter {
     }
 
     doc.y = y;
+  }
+
+  private async addImage(doc: PDFDocument, block: any): Promise<void> {
+    const src = block.attrs?.src;
+    if (!src) {
+      this.logger.warn(`[PDF export] ${block.type} has no src`);
+      return;
+    }
+
+    try {
+      const imageBuffer = await this.fetchImageBuffer(src);
+      if (!imageBuffer) {
+        this.logger.error(`[PDF export] Failed to get buffer for ${block.type}`);
+        return;
+      }
+
+      let imageType = this.getImageType(imageBuffer, src);
+      let finalBuffer = imageBuffer;
+
+      if (imageType === 'svg') {
+        try {
+          finalBuffer = await sharp(imageBuffer).resize({ width: 580 }).png().toBuffer();
+          imageType = 'png';
+        } catch (svgError) {
+          this.logger.warn(`[PDF export] Failed to convert SVG to PNG for ${block.type}:`, svgError);
+          return;
+        }
+      }
+
+      if (!imageType || !['png', 'jpg', 'jpeg', 'gif'].includes(imageType)) {
+        this.logger.error(`[PDF export] Unsupported image type for ${block.type}: ${imageType}`);
+        return;
+      }
+
+      const dimensions = await this.getImageDimensions(finalBuffer);
+      const maxWidth = doc.page.width - 100;
+      const scale = dimensions.width > maxWidth ? maxWidth / dimensions.width : 1;
+      const width = Math.round(dimensions.width * scale);
+      const height = Math.round(dimensions.height * scale);
+
+      doc.image(finalBuffer, {
+        fit: [width, height],
+        align: 'center',
+        valign: 'top',
+      });
+      doc.moveDown(0.5);
+    } catch (error) {
+      this.logger.error(`[PDF export] Error embedding ${block.type} image:`, error);
+    }
+  }
+
+  private async fetchImageBuffer(src: string): Promise<Buffer | null> {
+    try {
+      if (src.startsWith('data:')) {
+        const base64 = src.split(',')[1];
+        if (!base64) {
+          this.logger.error('[PDF export] Empty base64 data URL');
+          return null;
+        }
+        return Buffer.from(base64, 'base64');
+      }
+
+      const url = src.startsWith('http') ? src : `${process.env.APP_URL || ''}${src}`;
+      this.logger.debug(`[PDF export] Fetching image from URL: ${url}`);
+      const response = await fetch(url);
+      if (!response.ok) {
+        this.logger.error(`[PDF export] Failed to fetch image: ${url} - ${response.status}`);
+        return null;
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      return Buffer.from(arrayBuffer);
+    } catch (error) {
+      this.logger.error('[PDF export] Error fetching image buffer:', error);
+      return null;
+    }
+  }
+
+  private async getImageDimensions(buffer: Buffer): Promise<{ width: number; height: number }> {
+    try {
+      const metadata = await sharp(buffer).metadata();
+      let width = metadata.width || 580;
+      let height = metadata.height || 320;
+
+      if (!width || !height) {
+        width = 580;
+        height = 320;
+      }
+
+      return { width, height };
+    } catch (error) {
+      this.logger.error('Error getting image dimensions:', error);
+      return { width: 580, height: 320 };
+    }
+  }
+
+  private getImageType(buffer: Buffer, src: string): string | null {
+    if (src.startsWith('data:image/png')) return 'png';
+    if (src.startsWith('data:image/jpeg') || src.startsWith('data:image/jpg')) return 'jpg';
+    if (src.startsWith('data:image/gif')) return 'gif';
+    if (src.startsWith('data:image/bmp')) return 'bmp';
+    if (src.startsWith('data:image/svg')) return 'svg';
+
+    if (buffer.length < 4) return null;
+    if (buffer[0] === 0x89 && buffer[1] === 0x50) return 'png';
+    if (buffer[0] === 0xff && buffer[1] === 0xd8) return 'jpg';
+    if (buffer[0] === 0x47 && buffer[1] === 0x49) return 'gif';
+    if (buffer[0] === 0x42 && buffer[1] === 0x4d) return 'bmp';
+    if (buffer.slice(0, 500).toString().toLowerCase().includes('<svg')) return 'svg';
+
+    return null;
+  }
+
+  private async createInlineNodes(content: any[]): Promise<{ type: 'text' | 'image'; text?: string; block?: any }[]> {
+    const nodes: { type: 'text' | 'image'; text?: string; block?: any }[] = [];
+
+    for (const item of content) {
+      if (item.type === 'text') {
+        nodes.push({ type: 'text', text: item.text });
+      } else if (['image', 'excalidraw', 'drawio', 'kityminder', 'embed'].includes(item.type)) {
+        nodes.push({ type: 'image', block: item });
+      } else if (item.content) {
+        nodes.push(...(await this.createInlineNodes(item.content)));
+      }
+    }
+
+    return nodes;
   }
 
   private extractBlockText(block: any): string {
