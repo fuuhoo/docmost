@@ -3,27 +3,19 @@ import { Logger } from '@nestjs/common';
 import * as sharp from 'sharp';
 import * as fs from 'fs';
 
-// fontkit is a transitive dependency of pdfkit; it is used to load .ttc collections
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const fontkit = require('fontkit');
-
-interface FontInfo {
-  regular: any;
-  bold: any;
-}
 
 /**
  * Convert ProseMirror JSON to PDF format
  */
 export class PdfExporter {
   private readonly logger = new Logger(PdfExporter.name);
-  private readonly fonts: FontInfo | null;
+  private readonly fonts: { regular: Buffer; bold: Buffer } | null;
 
   constructor() {
     this.fonts = this.loadCjkFonts();
   }
 
-  private loadCjkFonts(): FontInfo | null {
+  private loadCjkFonts(): { regular: Buffer; bold: Buffer } | null {
     const candidates = [
       '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
       '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf',
@@ -51,13 +43,13 @@ export class PdfExporter {
 
     try {
       this.logger.log(`Loading PDF regular font from ${regularPath}`);
-      const regular = this.openFont(regularPath);
+      const regular = fs.readFileSync(regularPath);
       this.logger.log('PDF regular font loaded successfully');
 
       let bold = regular;
       if (boldPath && boldPath !== regularPath) {
         this.logger.log(`Loading PDF bold font from ${boldPath}`);
-        bold = this.openFont(boldPath);
+        bold = fs.readFileSync(boldPath);
       }
 
       return { regular, bold };
@@ -67,20 +59,11 @@ export class PdfExporter {
     }
   }
 
-  private openFont(fontPath: string): any {
-    const opened = fontkit.openSync(fontPath);
-    // TrueType Collections expose multiple sub-fonts; pick the first one.
-    if (opened && typeof opened.getFont === 'function') {
-      return opened.getFont(0);
-    }
-    if (opened && Array.isArray(opened.fonts) && opened.fonts.length > 0) {
-      return opened.fonts[0];
-    }
-    return opened;
-  }
-
   private applyFont(doc: PDFDocument, bold = false): void {
     if (this.fonts) {
+      // Pass the font file buffer to pdfkit; pdfkit uses fontkit internally to
+      // parse the font (including TrueType Collections, where it picks the
+      // first sub-font).
       doc.font(bold ? this.fonts.bold : this.fonts.regular);
     } else {
       doc.font(bold ? 'Helvetica-Bold' : 'Helvetica');
