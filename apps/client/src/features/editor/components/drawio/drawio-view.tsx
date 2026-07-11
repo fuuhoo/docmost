@@ -15,6 +15,7 @@ import {
   DrawIoEmbed,
   DrawIoEmbedRef,
   EventExit,
+  EventExport,
   EventSave,
 } from "react-drawio";
 import { IAttachment } from "@/features/attachments/types/attachment.types";
@@ -22,6 +23,87 @@ import { decodeBase64ToSvgString, svgStringToFile } from "@/lib/utils";
 import clsx from "clsx";
 import { IconEdit } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
+
+const DRAWIO_XML_ATTR = "data-drawio-xml";
+
+function utf8ToBase64(str: string): string {
+  try {
+    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
+      String.fromCharCode(parseInt(p1, 16))
+    ));
+  } catch (e) {
+    console.error("Failed to encode string to base64", e);
+    return "";
+  }
+}
+
+function base64ToUtf8(str: string): string {
+  try {
+    return decodeURIComponent(
+      atob(str)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+  } catch (e) {
+    console.error("Failed to decode base64 string", e);
+    return "";
+  }
+}
+
+/**
+ * Embed the drawio mxfile XML into the SVG so it can be restored later.
+ */
+function embedXmlIntoSvg(svgString: string, xml: string): string {
+  if (!svgString.startsWith("<svg")) {
+    return svgString;
+  }
+
+  const encodedXml = utf8ToBase64(xml);
+  if (!encodedXml) {
+    return svgString;
+  }
+
+  // Inject a <desc> element right after the opening <svg> tag
+  const svgEndIndex = svgString.indexOf(">", svgString.indexOf("<svg")) + 1;
+  if (svgEndIndex <= 0) {
+    return svgString;
+  }
+
+  const descTag = `<desc ${DRAWIO_XML_ATTR}="${encodedXml}"></desc>`;
+  return svgString.slice(0, svgEndIndex) + descTag + svgString.slice(svgEndIndex);
+}
+
+/**
+ * Extract the previously embedded drawio mxfile XML from the SVG.
+ */
+function extractXmlFromSvg(svgString: string): string | null {
+  if (!svgString.startsWith("<svg")) {
+    return null;
+  }
+
+  // Try our own embedded attribute first
+  const descMatch = svgString.match(
+    new RegExp(`<desc ${DRAWIO_XML_ATTR}="([A-Za-z0-9+/=]+)"`, "i")
+  );
+  if (descMatch) {
+    const decoded = base64ToUtf8(descMatch[1]);
+    if (decoded) {
+      return decoded;
+    }
+  }
+
+  // Fall back to drawio's native SVG content attribute
+  const contentMatch = svgString.match(/<svg[^>]*\scontent="([A-Za-z0-9+/=]+)"/i);
+  if (contentMatch) {
+    const decoded = base64ToUtf8(contentMatch[1]);
+    if (decoded) {
+      return decoded;
+    }
+  }
+
+  return null;
+}
 
 export default function DrawioView(props: NodeViewProps) {
   const { t } = useTranslation();
@@ -31,6 +113,8 @@ export default function DrawioView(props: NodeViewProps) {
   const [initialXML, setInitialXML] = useState<string>("");
   const [opened, { open, close }] = useDisclosure(false);
   const computedColorScheme = useComputedColorScheme();
+  const pendingXmlRef = useRef<string | null>(null);
+  const pendingCloseRef = useRef(false);
 
   const handleOpen = async () => {
     if (!editor.isEditable) {
@@ -44,14 +128,26 @@ export default function DrawioView(props: NodeViewProps) {
           credentials: "include",
           cache: "no-store",
         });
-        const blob = await request.blob();
+        const svgString = await request.text();
+        const mxXml = extractXmlFromSvg(svgString);
 
-        const reader = new FileReader();
-        reader.readAsDataURL(blob);
-        reader.onloadend = () => {
-          const base64data = (reader.result || "") as string;
-          setInitialXML(base64data);
-        };
+        if (mxXml) {
+          // drawio expects the raw mxfile XML string
+          setInitialXML(mxXml);
+        } else {
+          // If no XML found, try to load the raw SVG as a fallback.
+          // This is not editable but at least shows the diagram.
+          const blob = await fetch(url, {
+            credentials: "include",
+            cache: "no-store",
+          }).then((r) => r.blob());
+
+          const reader = new FileReader();
+          reader.readAsDataURL(blob);
+          reader.onloadend = () => {
+            setInitialXML((reader.result || "") as string);
+          };
+        }
       }
     } catch (err) {
       console.error(err);
@@ -66,12 +162,45 @@ export default function DrawioView(props: NodeViewProps) {
       return;
     }
 
-    const svgString = decodeBase64ToSvgString(data.xml);
+    // Store the mxfile XML so we can embed it into the exported SVG.
+    pendingXmlRef.current = decodeBase64ToSvgString(data.xml);
+
+    // Request an SVG export. The actual save/upload happens in onExport.
+    drawioRef.current?.exportDiagram({ format: "xmlsvg" });
+  };
+
+  const handleExport = async (data: EventExport) => {
+    if (data.format !== "xmlsvg" || !pendingXmlRef.current) {
+      return;
+    }
+
+    let svgString = data.data || "";
+
+    // The exported data may be a raw base64 string or a data URI
+    if (svgString.startsWith("data:image/svg+xml;base64,")) {
+      svgString = decodeBase64ToSvgString(svgString);
+    } else if (svgString) {
+      try {
+        svgString = base64ToUtf8(svgString);
+      } catch (e) {
+        console.error("Failed to decode exported SVG", e);
+      }
+    }
+
+    if (!svgString.startsWith("<svg")) {
+      console.error("Exported data is not a valid SVG");
+      pendingXmlRef.current = null;
+      return;
+    }
+
+    // Embed the mxfile XML into the SVG for later editing.
+    svgString = embedXmlIntoSvg(svgString, pendingXmlRef.current);
+    pendingXmlRef.current = null;
 
     const fileName = "diagram.drawio.svg";
     const drawioSVGFile = await svgStringToFile(svgString, fileName);
 
-    //@ts-ignore
+    // @ts-ignore
     const pageId = editor.storage?.pageId;
 
     let attachment: IAttachment = null;
@@ -88,6 +217,23 @@ export default function DrawioView(props: NodeViewProps) {
       size: attachment.fileSize,
       attachmentId: attachment.id,
     });
+
+    if (pendingCloseRef.current) {
+      close();
+    }
+  };
+
+  const handleClose = (data: EventExit) => {
+    // If the exit is triggered by another event, then do nothing
+    if (data.parentEvent) {
+      return;
+    }
+
+    // If there is a pending export/save, let onExport finish first.
+    if (pendingXmlRef.current) {
+      pendingCloseRef.current = true;
+      return;
+    }
 
     close();
   };
@@ -113,12 +259,11 @@ export default function DrawioView(props: NodeViewProps) {
                 onSave={(data: EventSave) => {
                   handleSave(data);
                 }}
+                onExport={(data: EventExport) => {
+                  handleExport(data);
+                }}
                 onClose={(data: EventExit) => {
-                  // If the exit is triggered by another event, then do nothing
-                  if (data.parentEvent) {
-                    return;
-                  }
-                  close();
+                  handleClose(data);
                 }}
               />
             </div>
