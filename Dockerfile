@@ -1,8 +1,13 @@
 # ========== 基础阶段（Alpine 更小） ==========
 FROM node:22-alpine AS base
-# LibreOffice is used to convert DOCX exports to PDF. It also pulls in fonts
-# needed for CJK characters, so font-noto-cjk is no longer required separately.
-RUN apk add --no-cache libreoffice && \
+# Download lightweight OTF CJK fonts instead of installing heavy font packages
+# or LibreOffice. pdfkit can embed these OTF fonts directly.
+RUN apk add --no-cache curl && \
+    mkdir -p /usr/share/fonts/opentype/noto && \
+    curl -fsSL -o /usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf \
+        https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf && \
+    curl -fsSL -o /usr/share/fonts/opentype/noto/NotoSansCJKsc-Bold.otf \
+        https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Bold.otf && \
     npm install -g pnpm@10.4.0 && \
     pnpm config set registry https://registry.npmmirror.com/
 
@@ -42,9 +47,8 @@ COPY --from=builder /app/apps/server/package.json /app/apps/server/package.json
 COPY --from=builder /app/apps/client/package.json /app/apps/client/package.json
 COPY --from=builder /app/packages/editor-ext/package.json /app/packages/editor-ext/package.json
 
-# 复制字体（如果字体太多，可以只保留必要的，例如只复制 NotoSansCJK-Regular.ttc）
-# 此处保留原样
-COPY docker/fonts/*.ttc /usr/share/fonts/opentype/noto/
+# OTF fonts are already downloaded in base stage; no need to copy TTC fonts
+# COPY docker/fonts/*.ttc /usr/share/fonts/opentype/noto/
 
 # 使用 pnpm deploy 为每个子项目生成独立的部署目录（只包含生产依赖）
 # 添加 --legacy 以兼容 pnpm v10 的默认行为
@@ -73,8 +77,13 @@ USER node
 FROM node:22-alpine AS final
 LABEL org.opencontainers.image.source="https://github.com/fuuhoo/docmost"
 
-# LibreOffice is also required in the final runtime image.
-RUN apk add --no-cache libreoffice
+# Download the same lightweight OTF fonts into the final runtime image.
+RUN apk add --no-cache curl && \
+    mkdir -p /usr/share/fonts/opentype/noto && \
+    curl -fsSL -o /usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf \
+        https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf && \
+    curl -fsSL -o /usr/share/fonts/opentype/noto/NotoSansCJKsc-Bold.otf \
+        https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Bold.otf
 
 # 只复制运行时需要的目录（已精简）
 COPY --from=installer --chown=node:node /app /app
