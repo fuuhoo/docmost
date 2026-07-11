@@ -16,39 +16,36 @@ export class PdfExporter {
   }
 
   private loadCjkFonts(): { regular: Buffer; bold: Buffer } | null {
+    // Only OTF/TTF single fonts are accepted. pdfkit cannot safely embed TTC
+    // (TrueType Collections) because its createSubset path fails on collections.
     const candidates = [
-      // Lightweight OTF fonts downloaded at build time
+      // Lightweight OTF fonts downloaded at Docker build time
       '/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf',
       '/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.ttf',
       '/usr/share/fonts/opentype/noto/NotoSansSC-Regular.otf',
       '/usr/share/fonts/opentype/noto/NotoSansSC-Regular.ttf',
       '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf',
       '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttf',
-      '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
       '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttf',
-      '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
       '/usr/share/fonts/noto/NotoSansCJK-Regular.ttf',
-      '/usr/share/fonts/noto/NotoSansCJK-Regular.ttc',
     ];
 
     const regularPath = candidates.find((p) => fs.existsSync(p));
     if (!regularPath) {
       this.logger.warn(
-        'No CJK font found. PDF Chinese text may render as garbled characters.',
+        'No OTF/TTF CJK font found. PDF Chinese text may render as garbled characters.',
       );
       return null;
     }
 
     const boldCandidates = [
       regularPath.replace('Regular', 'Bold'),
-      regularPath.replace('Regular', 'Bold').replace('.ttc', '.otf'),
-      regularPath.replace('Regular', 'Bold').replace('.ttc', '.ttf'),
       '/usr/share/fonts/opentype/noto/NotoSansCJKsc-Bold.otf',
       '/usr/share/fonts/opentype/noto/NotoSansSC-Bold.otf',
       '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.otf',
       '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttf',
+      '/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttf',
       '/usr/share/fonts/noto/NotoSansCJK-Bold.ttf',
-      '/usr/share/fonts/noto/NotoSansCJK-Bold.ttc',
     ];
     const boldPath = boldCandidates.find((p) => fs.existsSync(p));
 
