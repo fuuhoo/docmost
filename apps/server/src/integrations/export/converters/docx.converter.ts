@@ -117,6 +117,10 @@ export class DocxExporter {
         paragraphs.push(...(await this.createOrderedList(block)));
         break;
 
+      case 'taskList':
+        paragraphs.push(...(await this.createTaskList(block)));
+        break;
+
       case 'codeBlock':
         paragraphs.push(...(await this.createCodeBlock(block)));
         break;
@@ -154,7 +158,8 @@ export class DocxExporter {
         break;
 
       case 'listItem':
-        // ListItems are processed within their parent list
+      case 'taskItem':
+        // ListItems and taskItems are processed within their parent list
         break;
 
       default:
@@ -228,6 +233,31 @@ export class DocxExporter {
               numbering: { level: 0, reference: 'my-numbering' },
               spacing: { after: 100 },
               children: runs.length > 0 ? runs : [new TextRun('')],
+            }),
+          );
+        }
+      }
+    }
+
+    return items;
+  }
+
+  private async createTaskList(block: any): Promise<Paragraph[]> {
+    const items: Paragraph[] = [];
+
+    if (block.content) {
+      for (const item of block.content) {
+        if (item.type === 'taskItem') {
+          const checked = item.attrs?.checked === true;
+          const prefix = checked ? '[x] ' : '[ ] ';
+          const runs = await this.createTextRuns(item.content || []);
+          items.push(
+            new Paragraph({
+              spacing: { after: 100 },
+              children: [
+                new TextRun({ text: prefix, bold: true }),
+                ...(runs.length > 0 ? runs : [new TextRun('')]),
+              ],
             }),
           );
         }

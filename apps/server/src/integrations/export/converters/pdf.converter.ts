@@ -204,6 +204,10 @@ export class PdfExporter {
         this.addOrderedList(doc, block);
         break;
 
+      case 'taskList':
+        this.addTaskList(doc, block);
+        break;
+
       case 'codeBlock':
         this.addCodeBlock(doc, block);
         break;
@@ -312,6 +316,27 @@ export class PdfExporter {
             wordBreak: true,
           });
           index++;
+        }
+      }
+    }
+
+    doc.moveDown(0.2);
+  }
+
+  private addTaskList(doc: PDFDocument, block: any): void {
+    const indent = 20;
+    this.applyFont(doc, false);
+
+    if (block.content) {
+      for (const item of block.content) {
+        if (item.type === 'taskItem') {
+          const checked = item.attrs?.checked === true;
+          const prefix = checked ? '[x] ' : '[ ] ';
+          const text = this.extractBlockText(item);
+          doc.text(`${prefix}${text}`, {
+            indent: indent,
+            wordBreak: true,
+          });
         }
       }
     }
