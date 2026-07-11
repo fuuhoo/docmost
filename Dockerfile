@@ -1,7 +1,6 @@
-# ========== 基础阶段（Alpine 更小） ==========
+# ========== 基础阶段（Alpine，轻量 OTF 字体） ==========
 FROM node:22-alpine AS base
-# Download lightweight OTF CJK fonts instead of installing heavy font packages
-# or LibreOffice. pdfkit can embed these OTF fonts directly.
+# 下载轻量 OTF 中文字体（约 8MB/个），pdfkit 可直接嵌入，无需 LibreOffice
 RUN apk add --no-cache curl && \
     mkdir -p /usr/share/fonts/opentype/noto && \
     curl -fsSL -o /usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf \
@@ -29,7 +28,7 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm build
 
-# ========== 生产部署阶段 ==========
+# ========== 生产部署阶段（不含 libreoffice） ==========
 FROM base AS installer
 WORKDIR /app
 
@@ -47,37 +46,33 @@ COPY --from=builder /app/apps/server/package.json /app/apps/server/package.json
 COPY --from=builder /app/apps/client/package.json /app/apps/client/package.json
 COPY --from=builder /app/packages/editor-ext/package.json /app/packages/editor-ext/package.json
 
-# OTF fonts are already downloaded in base stage; no need to copy TTC fonts
-# COPY docker/fonts/*.ttc /usr/share/fonts/opentype/noto/
-
-# 使用 pnpm deploy 为每个子项目生成独立的部署目录（只包含生产依赖）
-# 添加 --legacy 以兼容 pnpm v10 的默认行为
+# 使用 pnpm deploy 生成独立的部署目录（只含生产依赖）
 RUN pnpm deploy --filter=server --prod --legacy /deploy/server && \
     pnpm deploy --filter=client --prod --legacy /deploy/client && \
     pnpm deploy --filter=editor-ext --prod --legacy /deploy/editor-ext
 
-# 合并部署文件（将部署目录的 node_modules 等内容整合到 /app 下）
+# 合并部署文件到 /app 下
 RUN mkdir -p /app/apps/server /app/apps/client /app/packages/editor-ext && \
     cp -r /deploy/server/* /app/apps/server/ && \
     cp -r /deploy/client/* /app/apps/client/ && \
     cp -r /deploy/editor-ext/* /app/packages/editor-ext/ && \
     rm -rf /deploy
 
-# 删除源码、测试文件等（可选，减少体积）
+# 删除源码、测试文件等（减少体积）
 RUN find /app -name "*.md" -delete && \
     find /app -name "*.ts" -delete && \
     find /app -name "*.map" -delete && \
     rm -rf /app/apps/server/src /app/apps/client/src /app/packages/editor-ext/src
 
-# 切换用户（Alpine 默认有 node 用户）
+# 切换用户
 RUN chown -R node:node /app
 USER node
 
-# ========== 最终运行镜像 ==========
+# ========== 最终运行镜像（轻量 OTF 字体） ==========
 FROM node:22-alpine AS final
 LABEL org.opencontainers.image.source="https://github.com/fuuhoo/docmost"
 
-# Download the same lightweight OTF fonts into the final runtime image.
+# 运行阶段同样需要 OTF 字体
 RUN apk add --no-cache curl && \
     mkdir -p /usr/share/fonts/opentype/noto && \
     curl -fsSL -o /usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf \
@@ -85,14 +80,14 @@ RUN apk add --no-cache curl && \
     curl -fsSL -o /usr/share/fonts/opentype/noto/NotoSansCJKsc-Bold.otf \
         https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Bold.otf
 
-# 只复制运行时需要的目录（已精简）
+# 复制已精简的 /app
 COPY --from=installer --chown=node:node /app /app
 COPY --from=installer --chown=node:node /usr/share/fonts/opentype/noto /usr/share/fonts/opentype/noto
 
 WORKDIR /app
 ENV NODE_ENV=production
 
-RUN mkdir -p /app/data/storage && chown -R node:node /app/data
+# 数据目录
 VOLUME ["/app/data/storage"]
 
 EXPOSE 3000
