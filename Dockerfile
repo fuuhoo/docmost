@@ -53,9 +53,8 @@ LABEL org.opencontainers.image.source="https://github.com/fuuhoo/docmost"
 
 WORKDIR /app
 
-# 设置国内 Alpine 镜像源，避免 apk 官方源超时；只保留 ca-certificates（HTTPS 需要）
-RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.aliyun.com|g' /etc/apk/repositories && \
-    apk add --no-cache ca-certificates
+# node:22-alpine 基础镜像已包含 ca-certificates，且当前容器内 apk 网络受限，
+# 因此不再执行 apk add，避免构建失败。如后续 HTTPS 验证有问题，可手动安装。
 
 # 复制字体
 COPY --from=font-downloader --chown=node:node /fonts /usr/share/fonts/opentype/noto
