@@ -370,8 +370,8 @@ export class DocxExporter {
     });
   }
 
-  private async createCallout(block: any): Promise<Paragraph[]> {
-    const paragraphs: Paragraph[] = [];
+  private async createCallout(block: any): Promise<(Paragraph | Table)[]> {
+    const paragraphs: (Paragraph | Table)[] = [];
     const calloutType = block.attrs?.type || 'info';
     const typeColors: { [key: string]: string } = {
       default: '808080',
@@ -404,22 +404,26 @@ export class DocxExporter {
       for (const child of block.content) {
         const childParagraphs = await this.processBlock(child);
         for (const childParagraph of childParagraphs) {
-          const p = childParagraph as Paragraph;
-          paragraphs.push(
-            new Paragraph({
-              indent: { left: 240 },
-              border: {
-                left: {
-                  color,
-                  space: 24,
-                  style: BorderStyle.SINGLE,
-                  size: 24,
+          if (childParagraph instanceof Table) {
+            paragraphs.push(childParagraph);
+          } else {
+            const p = childParagraph as Paragraph;
+            paragraphs.push(
+              new Paragraph({
+                indent: { left: 240 },
+                border: {
+                  left: {
+                    color,
+                    space: 24,
+                    style: BorderStyle.SINGLE,
+                    size: 24,
+                  },
                 },
-              },
-              spacing: { after: 100 },
-              children: (p as any).children || [new TextRun('')],
-            }),
-          );
+                spacing: { after: 100 },
+                children: (p as any).children || [new TextRun('')],
+              }),
+            );
+          }
         }
       }
     }
@@ -427,8 +431,8 @@ export class DocxExporter {
     return paragraphs;
   }
 
-  private async createDetails(block: any): Promise<Paragraph[]> {
-    const paragraphs: Paragraph[] = [];
+  private async createDetails(block: any): Promise<(Paragraph | Table)[]> {
+    const paragraphs: (Paragraph | Table)[] = [];
     let summaryText = '';
 
     if (block.content) {
@@ -454,13 +458,16 @@ export class DocxExporter {
           new TextRun({ text: summaryText || 'Details', bold: true }),
         ],
       }),
-      ...paragraphs.map((p) =>
-        new Paragraph({
+      ...paragraphs.map((p) => {
+        if (p instanceof Table) {
+          return p;
+        }
+        return new Paragraph({
           indent: { left: 360 },
           spacing: { after: 100 },
           children: (p as any).children || [new TextRun('')],
-        }),
-      ),
+        });
+      }),
     ];
   }
 
