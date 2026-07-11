@@ -216,6 +216,14 @@ export class PdfExporter {
         this.addBlockquote(doc, block);
         break;
 
+      case 'callout':
+        await this.addCallout(doc, block);
+        break;
+
+      case 'details':
+        await this.addDetails(doc, block);
+        break;
+
       case 'horizontalRule':
         this.addHorizontalRule(doc);
         break;
@@ -398,6 +406,61 @@ export class PdfExporter {
 
     doc.restore();
     doc.moveDown(0.3);
+  }
+
+  private async addCallout(doc: PDFDocument, block: any): Promise<void> {
+    const calloutType = block.attrs?.type || 'info';
+    const typeColors: { [key: string]: string } = {
+      default: '#808080',
+      info: '#4472c4',
+      success: '#16a34a',
+      warning: '#d97706',
+      danger: '#dc2626',
+    };
+    const color = typeColors[calloutType] || typeColors.info;
+    const icon = block.attrs?.icon || calloutType;
+
+    const label = `${icon.toUpperCase()}: `;
+    this.applyFont(doc, true);
+    doc.fontSize(11).fillColor(color).text(label);
+    this.applyFont(doc, false);
+    doc.fillColor('#000000');
+
+    if (block.content) {
+      for (const child of block.content) {
+        await this.processBlock(doc, child);
+      }
+    }
+
+    doc.moveDown(0.2);
+  }
+
+  private async addDetails(doc: PDFDocument, block: any): Promise<void> {
+    let summaryText = 'Details';
+
+    if (block.content) {
+      for (const child of block.content) {
+        if (child.type === 'detailsSummary') {
+          summaryText = this.extractBlockText(child) || 'Details';
+        }
+      }
+    }
+
+    this.applyFont(doc, true);
+    doc.fontSize(11).text(`▶ ${summaryText}`);
+    this.applyFont(doc, false);
+
+    if (block.content) {
+      for (const child of block.content) {
+        if (child.type === 'detailsContent' && child.content) {
+          for (const contentChild of child.content) {
+            await this.processBlock(doc, contentChild);
+          }
+        }
+      }
+    }
+
+    doc.moveDown(0.2);
   }
 
   private addHorizontalRule(doc: PDFDocument): void {
@@ -666,6 +729,11 @@ export class PdfExporter {
         .map((item: any) => {
           if (item.type === 'text') {
             return item.text;
+          }
+          if (item.type === 'mention') {
+            const label = item.attrs?.label || item.attrs?.entityId || 'mention';
+            const isUser = item.attrs?.entityType === 'user';
+            return `${isUser ? '@' : ''}${label}`;
           }
           if (item.content) {
             return this.extractBlockText(item);

@@ -129,6 +129,14 @@ export class DocxExporter {
         paragraphs.push(await this.createBlockquote(block));
         break;
 
+      case 'callout':
+        paragraphs.push(...(await this.createCallout(block)));
+        break;
+
+      case 'details':
+        paragraphs.push(...(await this.createDetails(block)));
+        break;
+
       case 'horizontalRule':
         paragraphs.push(
           new Paragraph({
@@ -316,6 +324,100 @@ export class DocxExporter {
       spacing: { after: 200 },
       children: runs.length > 0 ? runs : [new TextRun('')],
     });
+  }
+
+  private async createCallout(block: any): Promise<Paragraph[]> {
+    const paragraphs: Paragraph[] = [];
+    const calloutType = block.attrs?.type || 'info';
+    const typeColors: { [key: string]: string } = {
+      default: '808080',
+      info: '4472c4',
+      success: '16a34a',
+      warning: 'd97706',
+      danger: 'dc2626',
+    };
+    const color = typeColors[calloutType] || typeColors.info;
+    const icon = block.attrs?.icon || calloutType;
+
+    paragraphs.push(
+      new Paragraph({
+        border: {
+          left: {
+            color,
+            space: 24,
+            style: BorderStyle.SINGLE,
+            size: 24,
+          },
+        },
+        spacing: { after: 0 },
+        children: [
+          new TextRun({ text: `${icon.toUpperCase()}: `, bold: true, color }),
+        ],
+      }),
+    );
+
+    if (block.content) {
+      for (const child of block.content) {
+        const childParagraphs = await this.processBlock(child);
+        for (const childParagraph of childParagraphs) {
+          const p = childParagraph as Paragraph;
+          paragraphs.push(
+            new Paragraph({
+              indent: { left: 240 },
+              border: {
+                left: {
+                  color,
+                  space: 24,
+                  style: BorderStyle.SINGLE,
+                  size: 24,
+                },
+              },
+              spacing: { after: 100 },
+              children: (p as any).children || [new TextRun('')],
+            }),
+          );
+        }
+      }
+    }
+
+    return paragraphs;
+  }
+
+  private async createDetails(block: any): Promise<Paragraph[]> {
+    const paragraphs: Paragraph[] = [];
+    let summaryText = '';
+
+    if (block.content) {
+      for (const child of block.content) {
+        if (child.type === 'detailsSummary') {
+          summaryText = this.extractBlockText(child);
+        } else if (child.type === 'detailsContent') {
+          if (child.content) {
+            for (const contentChild of child.content) {
+              const childParagraphs = await this.processBlock(contentChild);
+              paragraphs.push(...childParagraphs);
+            }
+          }
+        }
+      }
+    }
+
+    return [
+      new Paragraph({
+        spacing: { after: 100 },
+        children: [
+          new TextRun({ text: '▶ ', bold: true }),
+          new TextRun({ text: summaryText || 'Details', bold: true }),
+        ],
+      }),
+      ...paragraphs.map((p) =>
+        new Paragraph({
+          indent: { left: 360 },
+          spacing: { after: 100 },
+          children: (p as any).children || [new TextRun('')],
+        }),
+      ),
+    ];
   }
 
   private async createTable(block: any): Promise<Table[]> {
@@ -626,6 +728,10 @@ export class DocxExporter {
             runs.push(children[0]);
           }
         }
+      } else if (item.type === 'mention') {
+        const label = item.attrs?.label || item.attrs?.entityId || 'mention';
+        const isUser = item.attrs?.entityType === 'user';
+        runs.push(new TextRun({ text: `${isUser ? '@' : ''}${label}`, bold: true, color: '4472c4' }));
       } else if (item.content) {
         // Handle nested inline content (e.g., marks wrapped around nested elements)
         runs.push(...(await this.createTextRuns(item.content)));
