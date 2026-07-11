@@ -73,6 +73,9 @@ USER node
 FROM node:22-alpine AS final
 LABEL org.opencontainers.image.source="https://github.com/fuuhoo/docmost"
 
+# LibreOffice is also required in the final runtime image.
+RUN apk add --no-cache libreoffice
+
 # 只复制运行时需要的目录（已精简）
 COPY --from=installer --chown=node:node /app /app
 COPY --from=installer --chown=node:node /usr/share/fonts/opentype/noto /usr/share/fonts/opentype/noto
