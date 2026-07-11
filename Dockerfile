@@ -1,16 +1,8 @@
-# ========== 字体下载阶段（使用 BusyBox wget，避免 apk 安装 curl） ==========
-FROM node:22-alpine AS font-downloader
-RUN mkdir -p /fonts && \
-    wget -qO /fonts/NotoSansCJKsc-Regular.otf \
-        https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf && \
-    wget -qO /fonts/NotoSansCJKsc-Bold.otf \
-        https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Bold.otf
-
 # ========== 构建阶段（含完整依赖） ==========
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-# 安装 pnpm 即可，无需 curl
+# 安装 pnpm 即可
 RUN npm install -g pnpm@10.4.0
 
 # 复制依赖描述文件（利用缓存）
@@ -52,12 +44,6 @@ FROM node:22-alpine AS final
 LABEL org.opencontainers.image.source="https://github.com/fuuhoo/docmost"
 
 WORKDIR /app
-
-# node:22-alpine 基础镜像已包含 ca-certificates，且当前容器内 apk 网络受限，
-# 因此不再执行 apk add，避免构建失败。如后续 HTTPS 验证有问题，可手动安装。
-
-# 复制字体
-COPY --from=font-downloader --chown=node:node /fonts /usr/share/fonts/opentype/noto
 
 # 复制 server 独立部署产物（含 dist 和精简后的 node_modules）
 COPY --from=deployer --chown=node:node /deploy/server /app/apps/server
