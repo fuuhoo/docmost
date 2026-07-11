@@ -2,8 +2,9 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-# 安装 pnpm 即可
-RUN npm install -g pnpm@10.4.0
+# 安装 pnpm，并设置 npm 使用淘宝镜像
+RUN npm config set registry https://registry.npmmirror.com/ && \
+    npm install -g pnpm@10.4.0
 
 # 复制依赖描述文件（利用缓存）
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
@@ -23,7 +24,8 @@ RUN pnpm build
 FROM node:22-alpine AS deployer
 WORKDIR /app
 
-RUN npm install -g pnpm@10.4.0
+RUN npm config set registry https://registry.npmmirror.com/ && \
+    npm install -g pnpm@10.4.0
 
 # 只复制 pnpm 安装/部署所需的描述文件
 COPY --from=builder /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/.npmrc ./
