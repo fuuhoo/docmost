@@ -112,6 +112,9 @@ export class ExportService {
         prosemirrorJson,
         page.spaceId,
       );
+      this.logger.debug(
+        `[PDF export] Finished embedding attachments for single-page export`,
+      );
       return this.pdfExporter.exportToPdf(
         jsonWithEmbeddedImages,
         getPageTitle(page.title),
@@ -138,15 +141,6 @@ export class ExportService {
       getProsemirrorContent(page.content),
       page.workspaceId,
     );
-
-    if (includeAttachments) {
-      const attachmentIds = getAttachmentIds(prosemirrorJson);
-      if (attachmentIds.length > 0) {
-        this.logger.warn(
-          'Attachments cannot be embedded into single DOCX/PDF exports yet. They will remain as links.',
-        );
-      }
-    }
 
     const buffer = await this.exportPage(
       format,
@@ -300,7 +294,14 @@ export class ExportService {
           currentPagePath,
         );
 
-        if (includeAttachments) {
+        if (format === ExportFormat.DOCX || format === ExportFormat.PDF) {
+          // DOCX/PDF need the actual image bytes, so embed attachments as base64.
+          updatedJsonContent = await this.embedAttachmentsAsBase64(
+            updatedJsonContent,
+            page.spaceId,
+          );
+        } else if (includeAttachments) {
+          // For HTML/Markdown, create a local files folder and rewrite URLs.
           await this.zipAttachments(updatedJsonContent, page.spaceId, folder);
           updatedJsonContent =
             updateAttachmentUrlsToLocalPaths(updatedJsonContent);
