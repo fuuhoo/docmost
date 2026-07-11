@@ -17,6 +17,10 @@ export class PdfExporter {
 
   private loadCjkFonts(): { regular: Buffer; bold: Buffer } | null {
     const candidates = [
+      // Alpine font-noto-cjk package installs TTF files here
+      '/usr/share/fonts/noto/NotoSansCJK-Regular.ttc',
+      '/usr/share/fonts/noto/NotoSansCJK-Regular.ttf',
+      '/usr/share/fonts/noto/NotoSansCJK-Bold.ttf',
       '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
       '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf',
       '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttf',
@@ -38,6 +42,8 @@ export class PdfExporter {
       regularPath.replace('Regular', 'Bold'),
       regularPath.replace('Regular', 'Bold').replace('.ttc', '.otf'),
       regularPath.replace('Regular', 'Bold').replace('.ttc', '.ttf'),
+      '/usr/share/fonts/noto/NotoSansCJK-Bold.ttf',
+      '/usr/share/fonts/noto/NotoSansCJK-Bold.ttc',
     ];
     const boldPath = boldCandidates.find((p) => fs.existsSync(p));
 
