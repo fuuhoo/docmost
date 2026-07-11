@@ -1,12 +1,91 @@
 import * as PDFDocument from 'pdfkit';
 import { Logger } from '@nestjs/common';
 import * as sharp from 'sharp';
+import * as fs from 'fs';
+
+// fontkit is a transitive dependency of pdfkit; it is used to load .ttc collections
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const fontkit = require('fontkit');
+
+interface FontInfo {
+  regular: any;
+  bold: any;
+}
 
 /**
  * Convert ProseMirror JSON to PDF format
  */
 export class PdfExporter {
   private readonly logger = new Logger(PdfExporter.name);
+  private readonly fonts: FontInfo | null;
+
+  constructor() {
+    this.fonts = this.loadCjkFonts();
+  }
+
+  private loadCjkFonts(): FontInfo | null {
+    const candidates = [
+      '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+      '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf',
+      '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttf',
+      '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+      '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttf',
+      '/usr/share/fonts/noto/NotoSansCJK-Regular.ttc',
+      '/usr/share/fonts/noto/NotoSansCJK-Regular.ttf',
+    ];
+
+    const regularPath = candidates.find((p) => fs.existsSync(p));
+    if (!regularPath) {
+      this.logger.warn(
+        'No CJK font found. PDF Chinese text may render as garbled characters.',
+      );
+      return null;
+    }
+
+    const boldCandidates = [
+      regularPath.replace('Regular', 'Bold'),
+      regularPath.replace('Regular', 'Bold').replace('.ttc', '.otf'),
+      regularPath.replace('Regular', 'Bold').replace('.ttc', '.ttf'),
+    ];
+    const boldPath = boldCandidates.find((p) => fs.existsSync(p));
+
+    try {
+      this.logger.log(`Loading PDF regular font from ${regularPath}`);
+      const regular = this.openFont(regularPath);
+      this.logger.log('PDF regular font loaded successfully');
+
+      let bold = regular;
+      if (boldPath && boldPath !== regularPath) {
+        this.logger.log(`Loading PDF bold font from ${boldPath}`);
+        bold = this.openFont(boldPath);
+      }
+
+      return { regular, bold };
+    } catch (err) {
+      this.logger.error('Failed to load CJK font for PDF', err);
+      return null;
+    }
+  }
+
+  private openFont(fontPath: string): any {
+    const opened = fontkit.openSync(fontPath);
+    // TrueType Collections expose multiple sub-fonts; pick the first one.
+    if (opened && typeof opened.getFont === 'function') {
+      return opened.getFont(0);
+    }
+    if (opened && Array.isArray(opened.fonts) && opened.fonts.length > 0) {
+      return opened.fonts[0];
+    }
+    return opened;
+  }
+
+  private applyFont(doc: PDFDocument, bold = false): void {
+    if (this.fonts) {
+      doc.font(bold ? this.fonts.bold : this.fonts.regular);
+    } else {
+      doc.font(bold ? 'Helvetica-Bold' : 'Helvetica');
+    }
+  }
 
   /**
    * Export ProseMirror JSON to PDF
@@ -38,15 +117,14 @@ export class PdfExporter {
 
         // Add title
         if (title) {
-          doc
-            .fontSize(24)
-            .font('Helvetica-Bold')
-            .text(title, { underline: false });
+          this.applyFont(doc, true);
+          doc.fontSize(24).text(title, { underline: false });
           doc.moveDown(0.5);
         }
 
         // Reset font for content
-        doc.fontSize(11).font('Helvetica');
+        this.applyFont(doc, false);
+        doc.fontSize(11);
 
         // Process content
         (async () => {
@@ -131,12 +209,11 @@ export class PdfExporter {
 
     const fontSize = fontSizes[level] || 20;
 
-    doc
-      .fontSize(fontSize)
-      .font('Helvetica-Bold')
-      .text(text, { align: 'left' });
+    this.applyFont(doc, true);
+    doc.fontSize(fontSize).text(text, { align: 'left' });
 
-    doc.fontSize(11).font('Helvetica');
+    this.applyFont(doc, false);
+    doc.fontSize(11);
     doc.moveDown(0.3);
   }
 
@@ -150,7 +227,8 @@ export class PdfExporter {
     if (inlineNodes.length > 0) {
       for (const node of inlineNodes) {
         if (node.type === 'text') {
-          doc.fontSize(11).font('Helvetica').text(node.text, {
+          this.applyFont(doc, false);
+          doc.fontSize(11).text(node.text, {
             align: 'left',
             wordBreak: true,
           });
@@ -205,27 +283,25 @@ export class PdfExporter {
     const language = block.attrs?.language || 'code';
 
     if (language && language !== 'text') {
-      doc
-        .fontSize(9)
-        .font('Helvetica-Bold')
-        .text(`[${language}]`, { color: '#666666' });
+      this.applyFont(doc, true);
+      doc.fontSize(9).text(`[${language}]`, { color: '#666666' });
     }
 
     doc.save();
+    const boxHeight = doc.heightOfString(text, { width: doc.page.width - 100 }) + 20;
     doc
-      .rect(doc.x, doc.y, doc.page.width - 100, doc.heightOfString(text, { width: doc.page.width - 100 }) + 20)
+      .rect(doc.x, doc.y, doc.page.width - 100, boxHeight)
       .fill('#f5f5f5');
     doc.restore();
 
-    doc
-      .fontSize(9)
-      .font('Courier')
-      .text(text, {
-        align: 'left',
-        wordBreak: true,
-      });
+    this.applyFont(doc, false);
+    doc.fontSize(9).text(text, {
+      align: 'left',
+      wordBreak: true,
+    });
 
-    doc.fontSize(11).font('Helvetica');
+    this.applyFont(doc, false);
+    doc.fontSize(11);
     doc.moveDown(0.2);
   }
 
@@ -236,13 +312,16 @@ export class PdfExporter {
     doc.save();
     doc.rect(doc.x + indent, doc.y, 3, doc.heightOfString(text, { width: 450 })).fill('#4472c4');
 
-    doc.fontSize(11).font('Helvetica-Oblique').text(text, {
+    this.applyFont(doc, false);
+    doc.fontSize(11).text(text, {
       indent: indent + 10,
       wordBreak: true,
       color: '#555555',
+      oblique: true,
     });
 
-    doc.fontSize(11).font('Helvetica');
+    this.applyFont(doc, false);
+    doc.fontSize(11);
     doc.restore();
     doc.moveDown(0.3);
   }
@@ -302,7 +381,8 @@ export class PdfExporter {
     doc.rect(doc.x, y, doc.page.width - 100, rowHeight).fill();
 
     // Draw header text
-    doc.fillColor('#000000').fontSize(10).font('Helvetica-Bold');
+    this.applyFont(doc, true);
+    doc.fillColor('#000000').fontSize(10);
 
     if (rows[0]) {
       let x = doc.x;
@@ -318,7 +398,8 @@ export class PdfExporter {
     y += rowHeight;
 
     // Draw data rows
-    doc.fontSize(10).font('Helvetica');
+    this.applyFont(doc, false);
+    doc.fontSize(10);
 
     for (let i = 1; i < rows.length; i++) {
       // Draw row border
@@ -352,32 +433,43 @@ export class PdfExporter {
       return;
     }
 
+    this.logger.debug(`[PDF export] Embedding ${block.type}, src prefix: ${src.substring(0, 80)}`);
+
     try {
       const imageBuffer = await this.fetchImageBuffer(src);
       if (!imageBuffer) {
-        this.logger.error(`[PDF export] Failed to get buffer for ${block.type}`);
+        this.logger.error(`[PDF export] Failed to get buffer for ${block.type}, src: ${src.substring(0, 120)}`);
         return;
       }
 
       let imageType = this.getImageType(imageBuffer, src);
       let finalBuffer = imageBuffer;
+      let finalType = imageType;
+
+      this.logger.debug(`[PDF export] Detected image type for ${block.type}: ${imageType}, buffer size: ${imageBuffer.length}`);
 
       if (imageType === 'svg') {
         try {
-          finalBuffer = await sharp(imageBuffer).resize({ width: 580 }).png().toBuffer();
-          imageType = 'png';
+          finalBuffer = await sharp(imageBuffer)
+            .resize({ width: 1200, withoutEnlargement: true })
+            .png()
+            .toBuffer();
+          finalType = 'png';
+          this.logger.debug(`[PDF export] Converted SVG to PNG, size: ${finalBuffer.length}`);
         } catch (svgError) {
           this.logger.warn(`[PDF export] Failed to convert SVG to PNG for ${block.type}:`, svgError);
           return;
         }
       }
 
-      if (!imageType || !['png', 'jpg', 'jpeg', 'gif'].includes(imageType)) {
-        this.logger.error(`[PDF export] Unsupported image type for ${block.type}: ${imageType}`);
+      if (!finalType || !['png', 'jpg', 'jpeg', 'gif'].includes(finalType)) {
+        this.logger.error(`[PDF export] Unsupported image type for ${block.type}: ${finalType}`);
         return;
       }
 
-      const dimensions = await this.getImageDimensions(finalBuffer);
+      const dimensions = await this.getImageDimensions(finalBuffer, finalType);
+      this.logger.debug(`[PDF export] Image dimensions for ${block.type}: ${JSON.stringify(dimensions)}`);
+
       const maxWidth = doc.page.width - 100;
       const scale = dimensions.width > maxWidth ? maxWidth / dimensions.width : 1;
       const width = Math.round(dimensions.width * scale);
@@ -420,11 +512,24 @@ export class PdfExporter {
     }
   }
 
-  private async getImageDimensions(buffer: Buffer): Promise<{ width: number; height: number }> {
+  private async getImageDimensions(buffer: Buffer, imageType?: string): Promise<{ width: number; height: number }> {
     try {
       const metadata = await sharp(buffer).metadata();
       let width = metadata.width || 580;
       let height = metadata.height || 320;
+
+      if ((!width || !height) && imageType === 'svg') {
+        const svgString = buffer.toString('utf-8').slice(0, 2000);
+        const widthMatch = svgString.match(/<svg[^>]*\swidth=["']([\d.]+)/i);
+        const heightMatch = svgString.match(/<svg[^>]*\sheight=["']([\d.]+)/i);
+        const viewBoxMatch = svgString.match(/<svg[^>]*\sviewBox=["'][^"'\s]+\s[^"'\s]+\s([\d.]+)\s([\d.]+)["']/i);
+        if (widthMatch) width = parseFloat(widthMatch[1]);
+        if (heightMatch) height = parseFloat(heightMatch[1]);
+        if ((!width || !height) && viewBoxMatch) {
+          width = parseFloat(viewBoxMatch[1]);
+          height = parseFloat(viewBoxMatch[2]);
+        }
+      }
 
       if (!width || !height) {
         width = 580;
