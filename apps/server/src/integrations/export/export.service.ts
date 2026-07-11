@@ -97,9 +97,13 @@ export class ExportService {
     }
 
     if (format === ExportFormat.DOCX) {
-      const jsonWithEmbeddedImages = await this.embedAttachmentsAsBase64(
+      let jsonWithEmbeddedImages = await this.embedAttachmentsAsBase64(
         prosemirrorJson,
         page.spaceId,
+      );
+      jsonWithEmbeddedImages = await this.expandSubpages(
+        jsonWithEmbeddedImages,
+        page.id,
       );
       return this.docxExporter.exportToDocx(
         jsonWithEmbeddedImages,
@@ -108,9 +112,13 @@ export class ExportService {
     }
 
     if (format === ExportFormat.PDF) {
-      const jsonWithEmbeddedImages = await this.embedAttachmentsAsBase64(
+      let jsonWithEmbeddedImages = await this.embedAttachmentsAsBase64(
         prosemirrorJson,
         page.spaceId,
+      );
+      jsonWithEmbeddedImages = await this.expandSubpages(
+        jsonWithEmbeddedImages,
+        page.id,
       );
       this.logger.debug(
         `[PDF export] Finished embedding attachments for single-page export`,
@@ -346,6 +354,54 @@ export class ExportService {
     };
 
     zip.file('docmost-metadata.json', JSON.stringify(metadata, null, 2));
+  }
+
+  private async expandSubpages(
+    prosemirrorJson: any,
+    pageId: string,
+  ): Promise<any> {
+    if (!prosemirrorJson?.content || prosemirrorJson.content.length === 0) {
+      return prosemirrorJson;
+    }
+
+    const subpages = await this.db
+      .selectFrom('pages')
+      .select(['title', 'slugId', 'position'])
+      .where('parentPageId', '=', pageId)
+      .where('deletedAt', 'is', null)
+      .orderBy('position', 'asc')
+      .execute();
+
+    const cloned = JSON.parse(JSON.stringify(prosemirrorJson));
+
+    const replaceSubpages = (block: any): any => {
+      if (block.type === 'subpages') {
+        return {
+          type: 'bulletList',
+          content: subpages.map((subpage) => ({
+            type: 'listItem',
+            content: [
+              {
+                type: 'paragraph',
+                content: [
+                  {
+                    type: 'text',
+                    text: subpage.title || 'untitled',
+                  },
+                ],
+              },
+            ],
+          })),
+        };
+      }
+      if (Array.isArray(block.content)) {
+        block.content = block.content.map(replaceSubpages);
+      }
+      return block;
+    };
+
+    cloned.content = cloned.content.map(replaceSubpages);
+    return cloned;
   }
 
   private async embedAttachmentsAsBase64(

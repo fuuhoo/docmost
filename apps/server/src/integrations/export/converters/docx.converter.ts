@@ -153,6 +153,38 @@ export class DocxExporter {
         );
         break;
 
+      case 'mathBlock':
+        paragraphs.push(...(await this.createMathBlock(block)));
+        break;
+
+      case 'attachment':
+        paragraphs.push(
+          new Paragraph({
+            spacing: { after: 100 },
+            children: [
+              new TextRun({
+                text: `📎 ${block.attrs?.name || block.attrs?.attachmentId || 'attachment'}`,
+                italics: true,
+              }),
+            ],
+          }),
+        );
+        break;
+
+      case 'video':
+        paragraphs.push(
+          new Paragraph({
+            spacing: { after: 100 },
+            children: [
+              new TextRun({
+                text: `🎬 ${block.attrs?.src || block.attrs?.placeholder?.name || 'video'}`,
+                italics: true,
+              }),
+            ],
+          }),
+        );
+        break;
+
       case 'table':
         paragraphs.push(...(await this.createTable(block)));
         break;
@@ -304,6 +336,18 @@ export class DocxExporter {
           },
         },
         children: [new TextRun({ text: text || '', font: 'Courier New' })],
+      }),
+    ];
+  }
+
+  private async createMathBlock(block: any): Promise<Paragraph[]> {
+    const text = block.attrs?.text || '';
+    return [
+      new Paragraph({
+        spacing: { after: 200 },
+        children: [
+          new TextRun({ text: `$$${text}$$`, font: 'Courier New' }),
+        ],
       }),
     ];
   }
@@ -732,6 +776,9 @@ export class DocxExporter {
         const label = item.attrs?.label || item.attrs?.entityId || 'mention';
         const isUser = item.attrs?.entityType === 'user';
         runs.push(new TextRun({ text: `${isUser ? '@' : ''}${label}`, bold: true, color: '4472c4' }));
+      } else if (item.type === 'mathInline') {
+        const text = item.attrs?.text || '';
+        runs.push(new TextRun({ text: `$${text}$`, font: 'Courier New' }));
       } else if (item.content) {
         // Handle nested inline content (e.g., marks wrapped around nested elements)
         runs.push(...(await this.createTextRuns(item.content)));

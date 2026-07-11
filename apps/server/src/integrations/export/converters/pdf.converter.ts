@@ -228,6 +228,28 @@ export class PdfExporter {
         this.addHorizontalRule(doc);
         break;
 
+      case 'mathBlock':
+        this.addMathBlock(doc, block);
+        break;
+
+      case 'attachment':
+        this.applyFont(doc, false);
+        doc.fontSize(11).text(
+          `📎 ${block.attrs?.name || block.attrs?.attachmentId || 'attachment'}`,
+          { wordBreak: true },
+        );
+        doc.moveDown(0.2);
+        break;
+
+      case 'video':
+        this.applyFont(doc, false);
+        doc.fontSize(11).text(
+          `🎬 ${block.attrs?.src || block.attrs?.placeholder?.name || 'video'}`,
+          { wordBreak: true },
+        );
+        doc.moveDown(0.2);
+        break;
+
       case 'table':
         this.addTable(doc, block);
         break;
@@ -467,6 +489,15 @@ export class PdfExporter {
     const y = doc.y;
     doc.moveTo(doc.x, y).lineTo(doc.page.width - 50, y).stroke('#cccccc');
     doc.moveDown(0.3);
+  }
+
+  private addMathBlock(doc: PDFDocument, block: any): void {
+    const text = block.attrs?.text || '';
+    this.applyFont(doc, false);
+    doc.fontSize(11).text(`$$${text}$$`, {
+      wordBreak: true,
+    });
+    doc.moveDown(0.2);
   }
 
   private addTable(doc: PDFDocument, block: any): void {
@@ -715,6 +746,8 @@ export class PdfExporter {
         nodes.push({ type: 'text', text: item.text });
       } else if (['image', 'excalidraw', 'drawio', 'kityminder', 'embed'].includes(item.type)) {
         nodes.push({ type: 'image', block: item });
+      } else if (item.type === 'mathInline') {
+        nodes.push({ type: 'text', text: `$${item.attrs?.text || ''}$` });
       } else if (item.content) {
         nodes.push(...(await this.createInlineNodes(item.content)));
       }
