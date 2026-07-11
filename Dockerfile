@@ -1,6 +1,8 @@
 # ========== 基础阶段（Alpine 更小） ==========
 FROM node:22-alpine AS base
-RUN apk add --no-cache font-noto-cjk && \
+# LibreOffice is used to convert DOCX exports to PDF. It also pulls in fonts
+# needed for CJK characters, so font-noto-cjk is no longer required separately.
+RUN apk add --no-cache libreoffice && \
     npm install -g pnpm@10.4.0 && \
     pnpm config set registry https://registry.npmmirror.com/
 
