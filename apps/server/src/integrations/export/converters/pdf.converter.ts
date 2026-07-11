@@ -329,8 +329,12 @@ export class PdfExporter {
     }
 
     this.applyFont(doc, false);
-    doc.save();
     const boxHeight = doc.heightOfString(text, { width: doc.page.width - 100 }) + 20;
+    if (doc.y + boxHeight > doc.page.height - 50) {
+      doc.addPage();
+    }
+
+    doc.save();
     doc
       .rect(doc.x, doc.y, doc.page.width - 100, boxHeight)
       .fill('#f5f5f5');
@@ -350,9 +354,14 @@ export class PdfExporter {
   private addBlockquote(doc: PDFDocument, block: any): void {
     const text = this.extractBlockText(block);
     const indent = 20;
+    const boxHeight = doc.heightOfString(text, { width: 450 }) + 10;
+
+    if (doc.y + boxHeight > doc.page.height - 50) {
+      doc.addPage();
+    }
 
     doc.save();
-    doc.rect(doc.x + indent, doc.y, 3, doc.heightOfString(text, { width: 450 })).fill('#4472c4');
+    doc.rect(doc.x + indent, doc.y, 3, boxHeight - 10).fill('#4472c4');
 
     this.applyFont(doc, false);
     doc.fontSize(11).text(text, {
@@ -414,6 +423,10 @@ export class PdfExporter {
 
     const colWidth = (doc.page.width - 100) / colCount;
     const rowHeight = 25;
+    const totalHeight = rowHeight * rows.length;
+    if (doc.y + totalHeight > doc.page.height - 50) {
+      doc.addPage();
+    }
     let y = doc.y;
 
     // Draw header row with background
@@ -516,6 +529,10 @@ export class PdfExporter {
       const scale = dimensions.width > maxWidth ? maxWidth / dimensions.width : 1;
       const width = Math.round(dimensions.width * scale);
       const height = Math.round(dimensions.height * scale);
+
+      if (doc.y + height > doc.page.height - 50) {
+        doc.addPage();
+      }
 
       doc.image(finalBuffer, {
         fit: [width, height],
