@@ -72,4 +72,7 @@ ENV NODE_ENV=production
 VOLUME ["/app/data/storage"]
 EXPOSE 3000
 
-CMD ["node", "apps/server/dist/main"]
+# 将工作目录切换到 server 产物目录，使 process.cwd() 为 /app/apps/server
+# 从而 LOCAL_STORAGE_PATH 解析为 /app/data/storage，与 volume 挂载点一致
+WORKDIR /app/apps/server
+CMD ["node", "dist/main"]
