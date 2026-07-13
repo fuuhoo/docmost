@@ -1,4 +1,4 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module, OnApplicationBootstrap, OnModuleInit } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { join } from 'path';
 import * as fs from 'node:fs';
@@ -6,7 +6,7 @@ import fastifyStatic from '@fastify/static';
 import { EnvironmentService } from '../environment/environment.service';
 
 @Module({})
-export class StaticModule implements OnModuleInit {
+export class StaticModule implements OnModuleInit, OnApplicationBootstrap {
   constructor(
     private readonly httpAdapterHost: HttpAdapterHost,
     private readonly environmentService: EnvironmentService,
@@ -69,10 +69,26 @@ export class StaticModule implements OnModuleInit {
         wildcard: false,
         decorateReply: true,
       });
+    }
+  }
 
-      // Register the catch-all route for SPA
-      // This will handle all non-static file requests
-      // Use a route with a parameter to match all paths
+  public async onApplicationBootstrap() {
+    const httpAdapter = this.httpAdapterHost.httpAdapter;
+    const app = httpAdapter.getInstance();
+
+    const clientDistPath = join(
+      __dirname,
+      '..',
+      '..',
+      '..',
+      '..',
+      'client/dist',
+    );
+    const indexFilePath = join(clientDistPath, 'index.html');
+
+    // Register the catch-all route for SPA after all NestJS controllers
+    // have been registered, so /api/* routes take precedence.
+    if (fs.existsSync(clientDistPath) && fs.existsSync(indexFilePath)) {
       app.get('/*', (req: any, res: any) => {
         const stream = fs.createReadStream(indexFilePath);
         res.type('text/html').send(stream);
