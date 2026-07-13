@@ -63,6 +63,14 @@ COPY --from=deployer --chown=node:node /deploy/server /app/apps/server
 # 只保留 client 的静态构建产物（不需要其 node_modules）
 COPY --from=builder --chown=node:node /app/apps/client/dist /app/apps/client/dist
 
+# 安装字体配置工具，并嵌入预拆分的 CJK OTF 单字体
+# pdfkit 无法直接嵌入 TTC（TrueType Collections），单字体 OTF 才能被正确加载
+# 中文字体还用于 DOCX 导出中 sharp 对 SVG 的渲染
+RUN apk add --no-cache fontconfig
+COPY docker/fonts/otf/*.otf /usr/share/fonts/opentype/noto/
+# Debug: list copied fonts during build
+RUN ls -la /usr/share/fonts/opentype/noto/ && fc-cache -fv
+
 # 确保运行时数据目录可写
 RUN mkdir -p /app/data/storage && chown -R node:node /app/data
 

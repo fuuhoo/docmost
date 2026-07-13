@@ -17,26 +17,62 @@ export class PdfExporter {
   constructor() {
     this.downloadedFontDir = path.join(os.tmpdir(), 'docmost-fonts');
     this.fonts = this.findLocalCjkFonts();
+    if (this.fonts) {
+      this.logger.log('[PDF font] Local CJK fonts loaded during construction.');
+    } else {
+      this.logger.warn('[PDF font] No local CJK fonts found during construction.');
+    }
   }
 
   private findLocalCjkFonts(): { regular: Buffer; bold: Buffer } | null {
     // Only OTF/TTF single fonts are accepted. pdfkit cannot safely embed TTC
     // (TrueType Collections) because its createSubset path fails on collections.
-    const candidates = [
-      // Lightweight OTF fonts downloaded at Docker build time or locally
-      '/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf',
-      '/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.ttf',
-      '/usr/share/fonts/opentype/noto/NotoSansSC-Regular.otf',
-      '/usr/share/fonts/opentype/noto/NotoSansSC-Regular.ttf',
-      '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf',
-      '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttf',
-      '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttf',
-      '/usr/share/fonts/noto/NotoSansCJK-Regular.ttf',
-      path.join(this.downloadedFontDir, 'NotoSansCJKsc-Regular.otf'),
-      path.join(this.downloadedFontDir, 'NotoSansCJKsc-Regular.ttf'),
+    const fontDirs = [
+      '/usr/share/fonts/opentype/noto',
+      '/usr/share/fonts/truetype/noto',
+      '/usr/share/fonts/noto',
+      this.downloadedFontDir,
     ];
 
-    const regularPath = candidates.find((p) => fs.existsSync(p));
+    this.logger.log('[PDF font] Scanning font directories:', fontDirs.join(', '));
+
+    // Discover any NotoSans* OTF/TTF single font in the candidate directories.
+    // This allows fonts split from a bundled TTC collection to be picked up
+    // without hard-coding exact filenames.
+    const discoverFont = (pattern: RegExp): string | null => {
+      for (const dir of fontDirs) {
+        if (!fs.existsSync(dir)) {
+          this.logger.debug(`[PDF font] Directory does not exist: ${dir}`);
+          continue;
+        }
+        const files = fs.readdirSync(dir);
+        this.logger.log(`[PDF font] Directory ${dir} contains: ${files.join(', ')}`);
+        for (const file of files) {
+          if (pattern.test(file)) {
+            this.logger.log(`[PDF font] Matched ${pattern.source} -> ${file}`);
+            return path.join(dir, file);
+          }
+        }
+      }
+      return null;
+    };
+
+    const regularPath =
+      discoverFont(/NotoSans.*Regular\.(otf|ttf)$/i) ||
+      [
+        // Fallback to known filenames for backward compatibility
+        '/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf',
+        '/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.ttf',
+        '/usr/share/fonts/opentype/noto/NotoSansSC-Regular.otf',
+        '/usr/share/fonts/opentype/noto/NotoSansSC-Regular.ttf',
+        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf',
+        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttf',
+        '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttf',
+        '/usr/share/fonts/noto/NotoSansCJK-Regular.ttf',
+        path.join(this.downloadedFontDir, 'NotoSansCJKsc-Regular.otf'),
+        path.join(this.downloadedFontDir, 'NotoSansCJKsc-Regular.ttf'),
+      ].find((p) => fs.existsSync(p));
+
     if (!regularPath) {
       this.logger.warn(
         'No local OTF/TTF CJK font found. Will try to download one for PDF export.',
@@ -44,18 +80,19 @@ export class PdfExporter {
       return null;
     }
 
-    const boldCandidates = [
-      regularPath.replace('Regular', 'Bold'),
-      '/usr/share/fonts/opentype/noto/NotoSansCJKsc-Bold.otf',
-      '/usr/share/fonts/opentype/noto/NotoSansSC-Bold.otf',
-      '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.otf',
-      '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttf',
-      '/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttf',
-      '/usr/share/fonts/noto/NotoSansCJK-Bold.ttf',
-      path.join(this.downloadedFontDir, 'NotoSansCJKsc-Bold.otf'),
-      path.join(this.downloadedFontDir, 'NotoSansCJKsc-Bold.ttf'),
-    ];
-    const boldPath = boldCandidates.find((p) => fs.existsSync(p));
+    const boldPath =
+      discoverFont(/NotoSans.*Bold\.(otf|ttf)$/i) ||
+      [
+        regularPath.replace('Regular', 'Bold'),
+        '/usr/share/fonts/opentype/noto/NotoSansCJKsc-Bold.otf',
+        '/usr/share/fonts/opentype/noto/NotoSansSC-Bold.otf',
+        '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.otf',
+        '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttf',
+        '/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttf',
+        '/usr/share/fonts/noto/NotoSansCJK-Bold.ttf',
+        path.join(this.downloadedFontDir, 'NotoSansCJKsc-Bold.otf'),
+        path.join(this.downloadedFontDir, 'NotoSansCJKsc-Bold.ttf'),
+      ].find((p) => fs.existsSync(p));
 
     try {
       this.logger.log(`Loading PDF regular font from ${regularPath}`);
@@ -67,6 +104,10 @@ export class PdfExporter {
         this.logger.log(`Loading PDF bold font from ${boldPath}`);
         bold = fs.readFileSync(boldPath);
       }
+
+      this.logger.log(
+        `[PDF font] Loaded CJK fonts: regular=${regular.length} bytes, bold=${bold.length} bytes`,
+      );
 
       return { regular, bold };
     } catch (err) {
@@ -120,6 +161,7 @@ export class PdfExporter {
       // parse the font. Only OTF/TTF single fonts are accepted.
       doc.font(bold ? this.fonts.bold : this.fonts.regular);
     } else {
+      this.logger.warn('[PDF font] No CJK fonts available, falling back to Helvetica');
       doc.font(bold ? 'Helvetica-Bold' : 'Helvetica');
     }
   }
