@@ -1,6 +1,6 @@
 services:
   docmost:
-    image: docmost:260713
+    image: docmost:260714
     # depends_on:
     #   - db
     #   - redis
