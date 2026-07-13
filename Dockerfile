@@ -1,6 +1,10 @@
+# syntax=docker/dockerfile:1
 # ========== 构建阶段（含完整依赖） ==========
 FROM node:22-alpine AS builder
 WORKDIR /app
+
+ENV PNPM_HOME=/root/.local/share/pnpm
+ENV PATH=$PNPM_HOME:$PATH
 
 # 安装 pnpm，并设置 npm 使用淘宝镜像
 RUN npm config set registry https://registry.npmmirror.com/ && \
@@ -13,8 +17,10 @@ COPY apps/server/package.json ./apps/server/
 COPY apps/client/package.json ./apps/client/
 COPY packages/editor-ext/package.json ./packages/editor-ext/
 
-# 安装全部依赖（构建需要 devDependencies）
-RUN pnpm install --frozen-lockfile
+# 使用 BuildKit cache mount 持久化 pnpm store
+# 只要 pnpm-lock.yaml 没变，依赖就从本地缓存恢复，无需重新下载
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
 
 # 复制源码并构建
 COPY . .
@@ -23,6 +29,9 @@ RUN pnpm build
 # ========== 生产部署阶段（只打包 server 运行时依赖） ==========
 FROM node:22-alpine AS deployer
 WORKDIR /app
+
+ENV PNPM_HOME=/root/.local/share/pnpm
+ENV PATH=$PNPM_HOME:$PATH
 
 RUN npm config set registry https://registry.npmmirror.com/ && \
     npm install -g pnpm@10.4.0
@@ -38,8 +47,9 @@ COPY --from=builder /app/packages/editor-ext/package.json ./packages/editor-ext/
 COPY --from=builder /app/apps/server/dist ./apps/server/dist
 COPY --from=builder /app/packages/editor-ext/dist ./packages/editor-ext/dist
 
-# 仅生成 server 的独立部署目录（含生产依赖）
-RUN pnpm deploy --filter=server --prod --legacy /deploy/server
+# 复用同一个 pnpm store cache，生成仅含生产依赖的 server 部署目录
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm deploy --filter=server --prod --legacy /deploy/server
 
 # ========== 最终运行镜像（最小化） ==========
 FROM node:22-alpine AS final
