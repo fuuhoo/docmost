@@ -41,3 +41,6 @@ lerna-debug.log*
 .nx
 .nx/installation
 .nx/cache
+
+# pnpm local store (auto-created when running `pnpm install` outside the global cache)
+.pnpm-store/
