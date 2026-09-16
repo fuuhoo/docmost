@@ -37,6 +37,74 @@ To get started with Docmost, please refer to our [documentation](https://docmost
 
 > 说明：若仍配置这两个环境变量，会作为兜底；但环境变量开启注册后，界面关闭可能无效。推荐删掉环境变量，只在界面里配置。
 
+### docker-compose 示例
+
+可直接复制为 `docker-compose.yml`（请替换密码、密钥、`APP_URL` 与镜像 tag）：
+
+```yaml
+services:
+  docmost:
+    image: fubin/docmost:v260916-sw
+    # 或 registry.cn-qingdao.aliyuncs.com/fubin/docmost:v260916-sw
+    depends_on:
+      - db
+      - redis
+    environment:
+      # 对外访问地址：协议 + 主机 + 端口，需与浏览器访问一致
+      APP_URL: "http://172.17.4.75:3000"
+      # openssl rand -hex 32
+      APP_SECRET: "REPLACE_WITH_LONG_SECRET"
+      DATABASE_URL: "postgresql://docmost:STRONG_DB_PASSWORD@db:5432/docmost"
+      REDIS_URL: "redis://redis:6379"
+
+      # 邮件（邀请 / 注册 / 找回密码），可按需修改
+      MAIL_DRIVER: smtp
+      MAIL_FROM_ADDRESS: noreply@example.com
+      MAIL_FROM_NAME: Docmost
+      SMTP_HOST: smtp.example.com
+      SMTP_PORT: 587
+      SMTP_USERNAME: noreply@example.com
+      SMTP_PASSWORD: REPLACE_WITH_SMTP_PASSWORD
+      SMTP_SECURE: "false"
+      SMTP_IGNORETLS: "false"
+
+      # 自主注册与邮箱域名白名单请在「设置 → Security & SSO」里配置
+      # 不必再写 ENABLE_REGISTRATION / EMAIL_ALLOWED_DOMAINS
+
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    volumes:
+      # 附件等本地存储
+      - ./docmost:/app/data/storage
+
+  db:
+    image: postgres:16-alpine
+    # 若使用自建镜像，可改为 fubin/postgres:18，并确认数据目录路径
+    environment:
+      POSTGRES_DB: docmost
+      POSTGRES_USER: docmost
+      POSTGRES_PASSWORD: STRONG_DB_PASSWORD
+    restart: unless-stopped
+    volumes:
+      - ./db_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    # 若使用自建镜像，可改为 fubin/redis:8.2.3
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    restart: unless-stopped
+    volumes:
+      - ./redis_data:/data
+```
+
+启动：
+
+```bash
+docker compose up -d
+docker compose logs -f docmost
+```
+
 ### 2. 启动
 
 ```bash
