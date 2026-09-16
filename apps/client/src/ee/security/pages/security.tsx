@@ -8,6 +8,7 @@ import SsoProviderList from "@/ee/security/components/sso-provider-list.tsx";
 import CreateSsoProvider from "@/ee/security/components/create-sso-provider.tsx";
 import EnforceSso from "@/ee/security/components/enforce-sso.tsx";
 import AllowedDomains from "@/ee/security/components/allowed-domains.tsx";
+import SelfRegistration from "@/ee/security/components/self-registration.tsx";
 import { useTranslation } from "react-i18next";
 import useLicense from "@/ee/hooks/use-license.tsx";
 import usePlan from "@/ee/hooks/use-plan.tsx";
@@ -15,9 +16,13 @@ import EnforceMfa from "@/ee/security/components/enforce-mfa.tsx";
 
 export default function Security() {
   const { t } = useTranslation();
-  const { isAdmin } = useUserRole();
+  const { isOwner } = useUserRole();
   const { hasLicenseKey } = useLicense();
   const { isBusiness } = usePlan();
+
+  if (!isOwner) {
+    return null;
+  }
 
   return (
     <>
@@ -25,6 +30,10 @@ export default function Security() {
         <title>Security - {getAppName()}</title>
       </Helmet>
       <SettingsTitle title={t("Security")} />
+
+      <SelfRegistration />
+
+      <Divider my="lg" />
 
       <AllowedDomains />
 

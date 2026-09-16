@@ -13,6 +13,10 @@ export class UpdateWorkspaceDto extends PartialType(CreateWorkspaceDto) {
 
   @IsOptional()
   @IsBoolean()
+  enableRegistration: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   enforceMfa: boolean;
 
   @IsOptional()

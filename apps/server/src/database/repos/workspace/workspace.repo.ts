@@ -22,6 +22,7 @@ export class WorkspaceRepo {
     'settings',
     'defaultRole',
     'emailDomains',
+    'enableRegistration',
     'defaultSpaceId',
     'createdAt',
     'updatedAt',

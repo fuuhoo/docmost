@@ -17,7 +17,7 @@ export default function WorkspaceInvitesTable() {
     cursor,
     limit: 100,
   });
-  const { isAdmin } = useUserRole();
+  const { isOwner } = useUserRole();
 
   return (
     <>
@@ -70,7 +70,7 @@ export default function WorkspaceInvitesTable() {
                 </Table.Td>
 
                 <Table.Td>
-                  {isAdmin && <InviteActionMenu invitationId={invitation.id} />}
+                  {isOwner && <InviteActionMenu invitationId={invitation.id} />}
                 </Table.Td>
               </Table.Tr>
             ))}

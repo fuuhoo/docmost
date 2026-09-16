@@ -58,7 +58,7 @@ export default function AllowedDomains() {
         <Text size="md">{t("Allowed email domains")}</Text>
         <Text size="sm" c="dimmed">
           {t(
-            "Only users with email addresses from these domains can signup via SSO.",
+            "Only users with email addresses from these domains can register or signup via SSO. Leave empty to allow all domains.",
           )}
         </Text>
       </div>

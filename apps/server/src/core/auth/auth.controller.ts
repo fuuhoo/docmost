@@ -111,7 +111,11 @@ export class AuthController {
     @AuthWorkspace() workspace: Workspace,
     @Body() registerDto: RegisterDto,
   ) {
-    if (!this.environmentService.isRegistrationEnabled()) {
+    const registrationEnabled =
+      workspace.enableRegistration ||
+      this.environmentService.isRegistrationEnabled();
+
+    if (!registrationEnabled) {
       throw new BadRequestException(
         'Registration is not enabled. Please contact your administrator.',
       );

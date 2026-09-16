@@ -50,11 +50,11 @@ function buildWorkspaceAdminAbility() {
     createMongoAbility,
   );
 
-  can(WorkspaceCaslAction.Manage, WorkspaceCaslSubject.Settings);
-  can(WorkspaceCaslAction.Manage, WorkspaceCaslSubject.Member);
+  // Only workspace owners can rename the workspace or manage members
+  can(WorkspaceCaslAction.Read, WorkspaceCaslSubject.Settings);
+  can(WorkspaceCaslAction.Read, WorkspaceCaslSubject.Member);
   can(WorkspaceCaslAction.Manage, WorkspaceCaslSubject.Space);
   can(WorkspaceCaslAction.Manage, WorkspaceCaslSubject.Group);
-  can(WorkspaceCaslAction.Manage, WorkspaceCaslSubject.Member);
   can(WorkspaceCaslAction.Manage, WorkspaceCaslSubject.Attachment);
   can(WorkspaceCaslAction.Manage, WorkspaceCaslSubject.API);
 
@@ -68,6 +68,7 @@ function buildWorkspaceMemberAbility() {
   can(WorkspaceCaslAction.Read, WorkspaceCaslSubject.Settings);
   can(WorkspaceCaslAction.Read, WorkspaceCaslSubject.Member);
   can(WorkspaceCaslAction.Read, WorkspaceCaslSubject.Space);
+  can(WorkspaceCaslAction.Create, WorkspaceCaslSubject.Space);
   can(WorkspaceCaslAction.Read, WorkspaceCaslSubject.Group);
   can(WorkspaceCaslAction.Manage, WorkspaceCaslSubject.Attachment);
   can(WorkspaceCaslAction.Create, WorkspaceCaslSubject.API);

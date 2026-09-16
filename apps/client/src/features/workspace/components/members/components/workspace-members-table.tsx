@@ -18,6 +18,7 @@ import { SearchInput } from "@/components/common/search-input.tsx";
 import NoTableResults from "@/components/common/no-table-results.tsx";
 import { usePaginateAndSearch } from "@/hooks/use-paginate-and-search.tsx";
 import MemberActionMenu from "@/features/workspace/components/members/components/members-action-menu.tsx";
+import { timeAgo } from "@/lib/time.ts";
 
 export default function WorkspaceMembersTable() {
   const { t } = useTranslation();
@@ -28,7 +29,7 @@ export default function WorkspaceMembersTable() {
     query: search,
   });
   const changeMemberRoleMutation = useChangeMemberRoleMutation();
-  const { isAdmin, isOwner } = useUserRole();
+  const { isOwner } = useUserRole();
 
   const assignableUserRoles = isOwner
     ? userRoleData
@@ -54,13 +55,15 @@ export default function WorkspaceMembersTable() {
   return (
     <>
       <SearchInput onSearch={handleSearch} />
-      <Table.ScrollContainer minWidth={600}>
+      <Table.ScrollContainer minWidth={900}>
         <Table highlightOnHover verticalSpacing="sm">
           <Table.Thead>
             <Table.Tr>
               <Table.Th>{t("User")}</Table.Th>
               <Table.Th>{t("Status")}</Table.Th>
               <Table.Th>{t("Source")}</Table.Th>
+              <Table.Th>{t("Joined")}</Table.Th>
+              <Table.Th>{t("Last active")}</Table.Th>
               <Table.Th>{t("Role")}</Table.Th>
             </Table.Tr>
           </Table.Thead>
@@ -98,22 +101,34 @@ export default function WorkspaceMembersTable() {
                     </Text>
                   </Table.Td>
                   <Table.Td>
+                    <Text size="xs" c="dimmed">
+                      {user.createdAt ? timeAgo(new Date(user.createdAt)) : "—"}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="xs" c="dimmed">
+                      {user.lastLoginAt
+                        ? timeAgo(new Date(user.lastLoginAt))
+                        : t("Never")}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
                     <RoleSelectMenu
                       roles={assignableUserRoles}
                       roleName={getUserRoleLabel(user.role)}
                       onChange={(newRole) =>
                         handleRoleChange(user.id, user.role, newRole)
                       }
-                      disabled={!isAdmin}
+                      disabled={!isOwner}
                     />
                   </Table.Td>
                   <Table.Td>
-                    {isAdmin && <MemberActionMenu userId={user.id} />}
+                    {isOwner && <MemberActionMenu userId={user.id} />}
                   </Table.Td>
                 </Table.Tr>
               ))
             ) : (
-              <NoTableResults colSpan={4} />
+              <NoTableResults colSpan={7} />
             )}
           </Table.Tbody>
         </Table>

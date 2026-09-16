@@ -157,12 +157,22 @@ export default function SettingsSidebar() {
     if (item.label === "Security & SSO") {
       return user?.role === "owner";
     }
+
+    // Only workspace owner can access general settings and member management
+    if (item.label === "General" || item.label === "Members") {
+      return user?.role === "owner";
+    }
     
     // Hide Billing option
     if (item.label === "Billing") {
       return false;
     }
-    
+
+    // AI feature is not available yet
+    if (item.label === "AI settings") {
+      return false;
+    }
+
     return true;
   };
 

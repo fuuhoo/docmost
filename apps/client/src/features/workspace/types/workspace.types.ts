@@ -18,6 +18,7 @@ export interface IWorkspace {
   createdAt: Date;
   updatedAt: Date;
   emailDomains: string[];
+  enableRegistration?: boolean;
   memberCount?: number;
   plan?: string;
   hasLicenseKey?: boolean;

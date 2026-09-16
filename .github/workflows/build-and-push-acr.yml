@@ -55,11 +55,25 @@ jobs:
         with:
           images: ${{ env.ACR_REGISTRY }}/${{ env.ACR_NAMESPACE }}/${{ env.ACR_REPOSITORY }}
           tags: |
-            type=raw,value=${{ github.event.inputs.tag || 'latest' }}
+            type=raw,value=${{ github.event.inputs.tag || github.ref_name }}
             type=sha,prefix=,suffix=,format=short
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+
+      - name: Resolve image tag
+        id: tag
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          if [ -z "$TAG" ] || [ "$TAG" = "latest" ]; then
+            if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+              TAG="${GITHUB_REF_NAME}"
+            else
+              TAG="latest"
+            fi
+          fi
+          echo "value=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Using image tag: ${TAG}"
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -72,8 +86,8 @@ jobs:
           # 冲突（cannot export attestations），所以同时关掉 provenance/sbom。
           platforms: linux/amd64
           tags: |
-            ${{ env.ACR_REGISTRY }}/${{ env.ACR_NAMESPACE }}/${{ env.ACR_REPOSITORY }}:${{ github.event.inputs.tag || 'latest' }}
-            ${{ github.event.inputs.push_latest == 'true' && format('{0}/{1}/{2}:latest', env.ACR_REGISTRY, env.ACR_NAMESPACE, env.ACR_REPOSITORY) || '' }}
+            ${{ env.ACR_REGISTRY }}/${{ env.ACR_NAMESPACE }}/${{ env.ACR_REPOSITORY }}:${{ steps.tag.outputs.value }}
+            ${{ (github.event.inputs.push_latest == 'true' || github.ref_type == 'tag') && format('{0}/{1}/{2}:latest', env.ACR_REGISTRY, env.ACR_NAMESPACE, env.ACR_REPOSITORY) || '' }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -87,5 +101,5 @@ jobs:
       - name: Verify pushed image
         run: |
           echo "镜像已成功推送到阿里云ACR"
-          echo "镜像地址: ${{ env.ACR_REGISTRY }}/${{ env.ACR_NAMESPACE }}/${{ env.ACR_REPOSITORY }}:${{ github.event.inputs.tag || 'latest' }}"
-          docker buildx imagetools inspect ${{ env.ACR_REGISTRY }}/${{ env.ACR_NAMESPACE }}/${{ env.ACR_REPOSITORY }}:${{ github.event.inputs.tag || 'latest' }} || true
+          echo "镜像地址: ${{ env.ACR_REGISTRY }}/${{ env.ACR_NAMESPACE }}/${{ env.ACR_REPOSITORY }}:${{ steps.tag.outputs.value }}"
+          docker buildx imagetools inspect ${{ env.ACR_REGISTRY }}/${{ env.ACR_NAMESPACE }}/${{ env.ACR_REPOSITORY }}:${{ steps.tag.outputs.value }} || true

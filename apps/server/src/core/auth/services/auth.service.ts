@@ -77,10 +77,13 @@ export class AuthService {
   }
 
   async register(email: string, workspace: Workspace) {
-    const allowedDomains = this.environmentService.getEmailAllowedDomains();
+    const allowedDomains =
+      workspace.emailDomains?.length > 0
+        ? workspace.emailDomains
+        : this.environmentService.getEmailAllowedDomains();
     if (allowedDomains.length > 0) {
-      const emailDomain = email.split('@')[1];
-      if (!allowedDomains.includes(emailDomain)) {
+      const emailDomain = email.split('@')[1]?.toLowerCase();
+      if (!allowedDomains.map((d) => d.toLowerCase()).includes(emailDomain)) {
         throw new BadRequestException(
           'Your email domain is not allowed to register. Please contact your administrator.',
         );

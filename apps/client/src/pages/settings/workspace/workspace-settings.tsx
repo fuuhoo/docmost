@@ -6,9 +6,16 @@ import { getAppName, isCloud } from "@/lib/config.ts";
 import { Helmet } from "react-helmet-async";
 import ManageHostname from "@/ee/components/manage-hostname.tsx";
 import { Divider } from "@mantine/core";
+import useUserRole from "@/hooks/use-user-role.tsx";
 
 export default function WorkspaceSettings() {
   const { t } = useTranslation();
+  const { isOwner } = useUserRole();
+
+  if (!isOwner) {
+    return null;
+  }
+
   return (
     <>
       <Helmet>

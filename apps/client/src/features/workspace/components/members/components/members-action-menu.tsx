@@ -12,7 +12,7 @@ interface Props {
 export default function MemberActionMenu({ userId }: Props) {
   const { t } = useTranslation();
   const deleteWorkspaceMemberMutation = useDeleteWorkspaceMemberMutation();
-  const { isAdmin } = useUserRole();
+  const { isOwner } = useUserRole();
 
   const onRevoke = async () => {
     await deleteWorkspaceMemberMutation.mutateAsync({ userId });
@@ -55,7 +55,7 @@ export default function MemberActionMenu({ userId }: Props) {
             c="red"
             onClick={openRevokeModal}
             leftSection={<IconTrash size={16} />}
-            disabled={!isAdmin}
+            disabled={!isOwner}
           >
             {t("Delete member")}
           </Menu.Item>

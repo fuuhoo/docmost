@@ -20,13 +20,22 @@ export default function InviteActionMenu({ invitationId }: Props) {
   const { t } = useTranslation();
   const resendInvitationMutation = useResendInvitationMutation();
   const revokeInvitationMutation = useRevokeInvitationMutation();
-  const { isAdmin } = useUserRole();
+  const { isOwner } = useUserRole();
   const clipboard = useClipboard();
 
   const handleCopyLink = async (invitationId: string) => {
     try {
       const link = await getInviteLink({ invitationId });
-      clipboard.copy(link.inviteLink);
+      // Prefer the host the admin is currently browsing (Vite :5173 in dev,
+      // or the public APP_URL host in production) so the SPA can open /invites.
+      let inviteUrl = link?.inviteLink;
+      try {
+        const parsed = new URL(link.inviteLink);
+        inviteUrl = `${window.location.origin}${parsed.pathname}${parsed.search}`;
+      } catch {
+        // keep server-generated link if URL parse fails
+      }
+      clipboard.copy(inviteUrl);
       notifications.show({ message: t("Link copied") });
     } catch (err) {
       notifications.show({
@@ -81,7 +90,7 @@ export default function InviteActionMenu({ invitationId }: Props) {
             <Menu.Item
               onClick={() => handleCopyLink(invitationId)}
               leftSection={<IconCopy size={16} />}
-              disabled={!isAdmin}
+              disabled={!isOwner}
             >
               {t("Copy link")}
             </Menu.Item>
@@ -90,7 +99,7 @@ export default function InviteActionMenu({ invitationId }: Props) {
           <Menu.Item
             onClick={onResend}
             leftSection={<IconSend size={16} />}
-            disabled={!isAdmin}
+            disabled={!isOwner}
           >
             {t("Resend invitation")}
           </Menu.Item>
@@ -99,7 +108,7 @@ export default function InviteActionMenu({ invitationId }: Props) {
             c="red"
             onClick={openRevokeModal}
             leftSection={<IconTrash size={16} />}
-            disabled={!isAdmin}
+            disabled={!isOwner}
           >
             {t("Revoke invitation")}
           </Menu.Item>

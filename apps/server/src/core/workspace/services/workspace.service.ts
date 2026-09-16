@@ -74,7 +74,7 @@ export class WorkspaceService {
   async getWorkspacePublicData(workspaceId: string) {
     const workspace = await this.db
       .selectFrom('workspaces')
-      .select(['id', 'name', 'logo', 'hostname', 'licenseKey'])
+      .select(['id', 'name', 'logo', 'hostname', 'licenseKey', 'enableRegistration', 'emailDomains'])
       .select((eb) =>
         jsonArrayFrom(
           eb
@@ -97,11 +97,20 @@ export class WorkspaceService {
 
     const { licenseKey, ...rest } = workspace;
 
+    const enableRegistration =
+      workspace.enableRegistration ||
+      this.environmentService.isRegistrationEnabled();
+
+    const emailAllowedDomains =
+      workspace.emailDomains?.length > 0
+        ? workspace.emailDomains
+        : this.environmentService.getEmailAllowedDomains();
+
     return {
       ...rest,
       hasLicenseKey: Boolean(licenseKey),
-      enableRegistration: this.environmentService.isRegistrationEnabled(),
-      emailAllowedDomains: this.environmentService.getEmailAllowedDomains(),
+      enableRegistration,
+      emailAllowedDomains,
     };
   }
 

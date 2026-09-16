@@ -1,9 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as path from 'path';
 import { promises as fs } from 'fs';
-import { Migrator, FileMigrationProvider } from 'kysely';
+import { Migrator, FileMigrationProvider, sql } from 'kysely';
 import { InjectKysely } from 'nestjs-kysely';
 import { KyselyDB } from '@docmost/db/types/kysely.types';
+
+/** Columns this build relies on; startup fails if any are missing after migrate. */
+const REQUIRED_COLUMNS: Array<{ table: string; column: string }> = [
+  { table: 'workspaces', column: 'enable_registration' },
+  { table: 'workspaces', column: 'email_domains' },
+];
 
 @Injectable()
 export class MigrationService {
@@ -43,5 +49,35 @@ export class MigrationService {
       this.logger.error(error);
       process.exit(1);
     }
+  }
+
+  async verifySchema(): Promise<void> {
+    const missing: string[] = [];
+
+    for (const { table, column } of REQUIRED_COLUMNS) {
+      const result = await sql<{ column_name: string }>`
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = ${table}
+          AND column_name = ${column}
+      `.execute(this.db);
+
+      if (!result.rows?.length) {
+        missing.push(`${table}.${column}`);
+      }
+    }
+
+    if (missing.length > 0) {
+      this.logger.error(
+        `Database schema is incomplete. Missing columns: ${missing.join(', ')}`,
+      );
+      this.logger.error(
+        'Run pending migrations (pnpm --filter server run migration:up) and restart.',
+      );
+      process.exit(1);
+    }
+
+    this.logger.log('Database schema check passed');
   }
 }

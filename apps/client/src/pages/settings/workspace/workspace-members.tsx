@@ -17,7 +17,7 @@ export default function WorkspaceMembers() {
   const [segmentValue, setSegmentValue] = useState("members");
   const [workspace] = useAtom(workspaceAtom);
   const [searchParams] = useSearchParams();
-  const { isAdmin } = useUserRole();
+  const { isOwner } = useUserRole();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,6 +26,10 @@ export default function WorkspaceMembers() {
       setSegmentValue(currentTab);
     }
   }, [searchParams.get("tab")]);
+
+  if (!isOwner) {
+    return null;
+  }
 
   const handleSegmentChange = (value: string) => {
     setSegmentValue(value);
@@ -62,7 +66,7 @@ export default function WorkspaceMembers() {
           withItemsBorders={false}
         />
 
-        {isAdmin && <WorkspaceInviteModal />}
+        {isOwner && <WorkspaceInviteModal />}
       </Group>
 
       <Space h="lg" />

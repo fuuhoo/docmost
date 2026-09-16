@@ -112,9 +112,9 @@ export class DatabaseModule
   async onApplicationBootstrap() {
     await this.establishConnection();
 
-    if (this.environmentService.getNodeEnv() === 'production') {
-      await this.migrationService.migrateToLatest();
-    }
+    // Always apply pending migrations, then verify required columns exist.
+    await this.migrationService.migrateToLatest();
+    await this.migrationService.verifySchema();
   }
 
   async beforeApplicationShutdown(): Promise<void> {
