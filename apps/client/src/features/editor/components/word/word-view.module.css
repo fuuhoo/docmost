@@ -1,0 +1,44 @@
+.wordPreviewContent {
+  padding: var(--mantine-spacing-md);
+  font-family: Calibri, Arial, sans-serif;
+  line-height: 1.6;
+}
+
+.wordPreviewContent :global(h1),
+.wordPreviewContent :global(h2),
+.wordPreviewContent :global(h3),
+.wordPreviewContent :global(h4),
+.wordPreviewContent :global(h5),
+.wordPreviewContent :global(h6) {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+}
+
+.wordPreviewContent :global(p) {
+  margin-bottom: 1em;
+}
+
+.wordPreviewContent :global(ul),
+.wordPreviewContent :global(ol) {
+  margin-left: 1.5em;
+  margin-bottom: 1em;
+}
+
+.wordPreviewContent :global(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 1em;
+}
+
+.wordPreviewContent :global(td),
+.wordPreviewContent :global(th) {
+  border: 1px solid var(--mantine-color-gray-3);
+  padding: 8px;
+  text-align: left;
+}
+
+.wordPreviewContent :global(img) {
+  max-width: 100%;
+  height: auto;
+}

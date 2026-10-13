@@ -5,8 +5,40 @@ import { IconDownload, IconPaperclip } from "@tabler/icons-react";
 import { useHover } from "@mantine/hooks";
 import { formatBytes } from "@/lib";
 import { useTranslation } from "react-i18next";
+import PdfView from "../pdf/pdf-view";
+import WordView from "../word/word-view";
 
 export default function AttachmentView(props: NodeViewProps) {
+  const { node } = props;
+  
+  // Safely extract attributes with fallbacks
+  const attrs = node?.attrs || {};
+  const { mime, url, name, size } = attrs;
+
+  // Debug log to help identify the issue
+  if (!url) {
+    console.log("AttachmentView - uploading or missing URL:", { mime, name, size });
+  } else {
+    console.log("AttachmentView - rendering:", { mime, url, name, size });
+  }
+
+  // Check if it's a PDF or Word document and render specialized view
+  if (mime === "application/pdf") {
+    return <PdfView {...props} />;
+  }
+
+  if (
+    mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    mime === "application/msword"
+  ) {
+    return <WordView {...props} />;
+  }
+
+  // For other file types (or if mime is missing), use the original simple attachment view
+  return <SimpleAttachmentView {...props} />;
+}
+
+function SimpleAttachmentView(props: NodeViewProps) {
   const { t } = useTranslation();
   const { node, selected } = props;
   const { url, name, size } = node.attrs;
