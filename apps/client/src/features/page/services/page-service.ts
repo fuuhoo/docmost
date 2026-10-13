@@ -20,6 +20,27 @@ export async function createPage(data: Partial<IPage>): Promise<IPage> {
   return req.data;
 }
 
+export interface CreateFromDocumentResponse {
+  pageId: string;
+  slugId: string;
+  title: string;
+}
+
+export async function createPageFromDocument(
+  formData: FormData,
+): Promise<CreateFromDocumentResponse> {
+  const req = await api.post<CreateFromDocumentResponse>(
+    "/pages/create-from-document",
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
+  return req.data;
+}
+
 export async function getPageById(
   pageInput: Partial<IPageInput>,
 ): Promise<IPage> {

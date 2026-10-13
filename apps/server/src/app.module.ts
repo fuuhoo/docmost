@@ -19,6 +19,7 @@ import { TelemetryModule } from './integrations/telemetry/telemetry.module';
 import { RedisModule } from '@nestjs-labs/nestjs-ioredis';
 import { RedisConfigService } from './integrations/redis/redis-config.service';
 import { LoggerModule } from './common/logger/logger.module';
+import { DocumentParserModule } from './core/document-parser/document-parser.module';
 
 const enterpriseModules = [];
 try {
@@ -50,6 +51,7 @@ try {
     HealthModule,
     ImportModule,
     ExportModule,
+    DocumentParserModule,
     StorageModule.forRootAsync({
       imports: [EnvironmentModule],
     }),

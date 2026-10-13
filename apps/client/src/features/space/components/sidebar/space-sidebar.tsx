@@ -15,12 +15,13 @@ import {
   IconSearch,
   IconSettings,
   IconTrash,
+  IconUpload,
 } from "@tabler/icons-react";
 import classes from "./space-sidebar.module.css";
-import React from "react";
+import React, { useState } from "react";
 import { useAtom } from "jotai";
 import { treeApiAtom } from "@/features/page/tree/atoms/tree-api-atom.ts";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import clsx from "clsx";
 import { useDisclosure } from "@mantine/hooks";
 import SpaceSettingsModal from "@/features/space/components/settings-modal.tsx";
@@ -33,6 +34,7 @@ import {
   SpaceCaslSubject,
 } from "@/features/space/permissions/permissions.type.ts";
 import PageImportModal from "@/features/page/components/page-import-modal.tsx";
+import { ImportDocumentModal } from "@/features/page/components/import-document-modal";
 import { useTranslation } from "react-i18next";
 import { SwitchSpace } from "./switch-space";
 import ExportModal from "@/components/common/export-modal";
@@ -44,10 +46,13 @@ export function SpaceSidebar() {
   const { t } = useTranslation();
   const [tree] = useAtom(treeApiAtom);
   const location = useLocation();
+  const navigate = useNavigate();
   const [opened, { open: openSettings, close: closeSettings }] =
     useDisclosure(false);
   const [mobileSidebarOpened] = useAtom(mobileSidebarAtom);
   const toggleMobileSidebar = useToggleSidebar(mobileSidebarAtom);
+  const [importModalOpened, { open: openImportModal, close: closeImportModal }] =
+    useDisclosure(false);
 
   const { spaceSlug } = useParams();
   const { data: space } = useGetSpaceBySlugQuery(spaceSlug);
@@ -132,24 +137,45 @@ export function SpaceSidebar() {
               SpaceCaslAction.Manage,
               SpaceCaslSubject.Page,
             ) && (
-              <UnstyledButton
-                className={classes.menu}
-                onClick={() => {
-                  handleCreatePage();
-                  if (mobileSidebarOpened) {
-                    toggleMobileSidebar();
-                  }
-                }}
-              >
-                <div className={classes.menuItemInner}>
-                  <IconPlus
-                    size={18}
-                    className={classes.menuItemIcon}
-                    stroke={2}
-                  />
-                  <span>{t("New page")}</span>
-                </div>
-              </UnstyledButton>
+              <>
+                <UnstyledButton
+                  className={classes.menu}
+                  onClick={() => {
+                    handleCreatePage();
+                    if (mobileSidebarOpened) {
+                      toggleMobileSidebar();
+                    }
+                  }}
+                >
+                  <div className={classes.menuItemInner}>
+                    <IconPlus
+                      size={18}
+                      className={classes.menuItemIcon}
+                      stroke={2}
+                    />
+                    <span>{t("New page")}</span>
+                  </div>
+                </UnstyledButton>
+
+                <UnstyledButton
+                  className={classes.menu}
+                  onClick={() => {
+                    openImportModal();
+                    if (mobileSidebarOpened) {
+                      toggleMobileSidebar();
+                    }
+                  }}
+                >
+                  <div className={classes.menuItemInner}>
+                    <IconUpload
+                      size={18}
+                      className={classes.menuItemIcon}
+                      stroke={2}
+                    />
+                    <span>{t("Import from document")}</span>
+                  </div>
+                </UnstyledButton>
+              </>
             )}
           </div>
         </div>
@@ -197,6 +223,15 @@ export function SpaceSidebar() {
         opened={opened}
         onClose={closeSettings}
         spaceId={space?.slug}
+      />
+
+      <ImportDocumentModal
+        opened={importModalOpened}
+        onClose={closeImportModal}
+        spaceId={space.id}
+        onSuccess={(pageId, slugId) => {
+          navigate(`/${space.slug}/p/${slugId}`);
+        }}
       />
     </>
   );

@@ -8,6 +8,7 @@ import {
   NotFoundException,
   Post,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { PageService } from './services/page.service';
 import { CreatePageDto } from './dto/create-page.dto';
@@ -35,6 +36,15 @@ import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import { RecentPageDto } from './dto/recent-page.dto';
 import { DuplicatePageDto } from './dto/duplicate-page.dto';
 import { DeletedPageDto } from './dto/deleted-page.dto';
+import { DocumentParserService } from '../document-parser/document-parser.service';
+import { AttachmentService } from '../attachment/services/attachment.service';
+import { AttachmentType } from '../attachment/attachment.constants';
+import { prepareFile } from '../attachment/attachment.utils';
+import { htmlToJson, jsonToText, tiptapExtensions } from '../../collaboration/collaboration.util';
+import { TiptapTransformer } from '@hocuspocus/transformer';
+import * as Y from 'yjs';
+import { EnvironmentService } from '../../integrations/environment/environment.service';
+import bytes from 'bytes';
 
 @UseGuards(JwtAuthGuard)
 @Controller('pages')
@@ -44,6 +54,9 @@ export class PageController {
     private readonly pageRepo: PageRepo,
     private readonly pageHistoryService: PageHistoryService,
     private readonly spaceAbility: SpaceAbilityFactory,
+    private readonly documentParser: DocumentParserService,
+    private readonly attachmentService: AttachmentService,
+    private readonly environmentService: EnvironmentService,
   ) {}
 
   @HttpCode(HttpStatus.OK)
@@ -388,5 +401,136 @@ export class PageController {
       throw new ForbiddenException();
     }
     return this.pageService.getPageBreadCrumbs(page.id);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('create-from-document')
+  async createPageFromDocument(
+    @Req() req: any,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+    @Body() body: { spaceId?: string; parentPageId?: string; title?: string },
+  ) {
+    // 1. 获取上传的文件
+    const file = await req.file();
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    const buffer = await file.toBuffer();
+    const filename = file.filename;
+    const mimetype = file.mimetype;
+
+    // 2. 验证文件类型
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword',
+      'text/markdown',
+      'text/x-markdown',
+      'text/plain',
+    ];
+
+    if (!allowedTypes.includes(mimetype)) {
+      throw new BadRequestException(
+        'Only PDF, DOCX, and Markdown files are supported',
+      );
+    }
+
+    // 3. 验证文件大小
+    const maxSizeStr = this.environmentService.getFileUploadSizeLimit();
+    const maxSize = bytes.parse(maxSizeStr);
+    if (buffer.length > maxSize) {
+      throw new BadRequestException(
+        `File size exceeds limit of ${maxSizeStr}`,
+      );
+    }
+
+    // 4. 解析文档
+    const parsed = await this.documentParser.parseDocument(buffer, mimetype);
+
+    // 5. 转换为 ProseMirror JSON
+    const prosemirrorJson = htmlToJson(parsed.html);
+
+    // 6. 提取标题（优先使用用户提供的，否则从文档提取）
+    const title =
+      body.title || this.extractTitle(prosemirrorJson) || filename;
+
+    // 7. 生成 Yjs 文档
+    const ydoc = TiptapTransformer.toYdoc(
+      prosemirrorJson,
+      'default',
+      tiptapExtensions,
+    );
+    const ydocBuffer = Buffer.from(Y.encodeStateAsUpdate(ydoc));
+
+    // 8. 确定目标空间
+    const targetSpaceId = body.spaceId || workspace.defaultSpaceId;
+    if (!targetSpaceId) {
+      throw new BadRequestException('No target space specified');
+    }
+
+    // 9. 检查权限
+    const ability = await this.spaceAbility.createForUser(user, targetSpaceId);
+    if (ability.cannot(SpaceCaslAction.Create, SpaceCaslSubject.Page)) {
+      throw new ForbiddenException();
+    }
+
+    // 10. 创建页面
+    const page = await this.pageRepo.insertPage({
+      title,
+      content: prosemirrorJson,
+      ydoc: ydocBuffer,
+      textContent: jsonToText(prosemirrorJson),
+      creatorId: user.id,
+      lastUpdatedById: user.id,
+      spaceId: targetSpaceId,
+      workspaceId: workspace.id,
+      parentPageId: body.parentPageId || null,
+    });
+
+    // 11. 上传原始文件作为附件
+    try {
+      await this.attachmentService.uploadFile({
+        filePromise: Promise.resolve({
+          filename,
+          mimetype,
+          toBuffer: async () => buffer,
+        } as any),
+        pageId: page.id,
+        userId: user.id,
+        spaceId: targetSpaceId,
+        workspaceId: workspace.id,
+      });
+    } catch (error) {
+      // 附件上传失败不影响页面创建，只记录日志
+      console.error('Failed to attach original file:', error);
+    }
+
+    return {
+      pageId: page.id,
+      slugId: page.slugId,
+      title: page.title,
+    };
+  }
+
+  /**
+   * 从 ProseMirror JSON 中提取第一个 heading 作为标题
+   */
+  private extractTitle(json: any): string | null {
+    const findHeading = (nodes: any[]): string | null => {
+      for (const node of nodes) {
+        if (node.type === 'heading' && node.attrs?.level === 1) {
+          return node.content?.[0]?.text || null;
+        }
+        if (node.content) {
+          const found = findHeading(node.content);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    return findHeading(json.content || []);
   }
 }
