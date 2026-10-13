@@ -411,8 +411,24 @@ export class PageController {
     @AuthWorkspace() workspace: Workspace,
     @Body() body: { spaceId?: string; parentPageId?: string; title?: string },
   ) {
-    // 1. 获取上传的文件
-    const file = await req.file();
+    // 1. 获取上传的文件（配置大小限制）
+    const maxSizeStr = this.environmentService.getFileUploadSizeLimit() || '50mb';
+    const maxFileSize = bytes.parse(maxSizeStr);
+    
+    let file = null;
+    try {
+      file = await req.file({
+        limits: { fileSize: maxFileSize, fields: 4, files: 1 },
+      });
+    } catch (err: any) {
+      if (err?.statusCode === 413) {
+        throw new BadRequestException(
+          `File too large. Exceeds the ${maxSizeStr} limit`,
+        );
+      }
+      throw err;
+    }
+    
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
@@ -439,26 +455,17 @@ export class PageController {
       );
     }
 
-    // 3. 验证文件大小
-    const maxSizeStr = this.environmentService.getFileUploadSizeLimit() || '50mb';
-    const maxSize = bytes.parse(maxSizeStr);
-    if (buffer.length > maxSize) {
-      throw new BadRequestException(
-        `File size exceeds limit of ${maxSizeStr}`,
-      );
-    }
-
-    // 4. 解析文档
+    // 3. 解析文档
     const parsed = await this.documentParser.parseDocument(buffer, mimetype);
 
-    // 5. 转换为 ProseMirror JSON
+    // 4. 转换为 ProseMirror JSON
     const prosemirrorJson = htmlToJson(parsed.html);
 
-    // 6. 提取标题（优先使用用户提供的，否则从文档提取，最后使用文件名）
+    // 5. 提取标题（优先使用用户提供的，否则从文档提取，最后使用文件名）
     const extractedTitle = this.extractTitle(prosemirrorJson);
     const title = body.title?.trim() || extractedTitle || filename || 'Untitled';
 
-    // 7. 生成 Yjs 文档
+    // 6. 生成 Yjs 文档
     const ydoc = TiptapTransformer.toYdoc(
       prosemirrorJson,
       'default',
@@ -466,19 +473,19 @@ export class PageController {
     );
     const ydocBuffer = Buffer.from(Y.encodeStateAsUpdate(ydoc));
 
-    // 8. 确定目标空间
+    // 7. 确定目标空间
     const targetSpaceId = body.spaceId || workspace.defaultSpaceId;
     if (!targetSpaceId) {
       throw new BadRequestException('No target space specified');
     }
 
-    // 9. 检查权限
+    // 8. 检查权限
     const ability = await this.spaceAbility.createForUser(user, targetSpaceId);
     if (ability.cannot(SpaceCaslAction.Create, SpaceCaslSubject.Page)) {
       throw new ForbiddenException();
     }
 
-    // 10. 创建页面
+    // 9. 创建页面
     const page = await this.pageRepo.insertPage({
       title,
       content: prosemirrorJson,
@@ -491,7 +498,7 @@ export class PageController {
       parentPageId: body.parentPageId || null,
     });
 
-    // 11. 上传原始文件作为附件
+    // 10. 上传原始文件作为附件
     try {
       await this.attachmentService.uploadFile({
         filePromise: Promise.resolve({
