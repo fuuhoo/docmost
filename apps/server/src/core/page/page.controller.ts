@@ -426,6 +426,8 @@ export class PageController {
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/msword',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.ms-powerpoint',
       'text/markdown',
       'text/x-markdown',
       'text/plain',
@@ -433,12 +435,12 @@ export class PageController {
 
     if (!allowedTypes.includes(mimetype)) {
       throw new BadRequestException(
-        'Only PDF, DOCX, and Markdown files are supported',
+        'Only PDF, Word, PowerPoint, and Markdown files are supported',
       );
     }
 
     // 3. 验证文件大小
-    const maxSizeStr = this.environmentService.getFileUploadSizeLimit();
+    const maxSizeStr = this.environmentService.getFileUploadSizeLimit() || '50mb';
     const maxSize = bytes.parse(maxSizeStr);
     if (buffer.length > maxSize) {
       throw new BadRequestException(
@@ -452,9 +454,9 @@ export class PageController {
     // 5. 转换为 ProseMirror JSON
     const prosemirrorJson = htmlToJson(parsed.html);
 
-    // 6. 提取标题（优先使用用户提供的，否则从文档提取）
-    const title =
-      body.title || this.extractTitle(prosemirrorJson) || filename;
+    // 6. 提取标题（优先使用用户提供的，否则从文档提取，最后使用文件名）
+    const extractedTitle = this.extractTitle(prosemirrorJson);
+    const title = body.title?.trim() || extractedTitle || filename || 'Untitled';
 
     // 7. 生成 Yjs 文档
     const ydoc = TiptapTransformer.toYdoc(

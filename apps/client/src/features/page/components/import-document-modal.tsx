@@ -89,14 +89,14 @@ export function ImportDocumentModal({
       <form onSubmit={form.onSubmit(handleSubmit)}>
         <Alert icon={<IconAlertCircle size={16} />} color="blue" mb="md">
           <Text size="sm">
-            支持 PDF、Word (.docx) 和 Markdown (.md) 文件。系统会自动解析文档内容并创建新页面。
+            支持 PDF、Word (.docx)、PowerPoint (.pptx) 和 Markdown (.md) 文件。系统会自动解析文档内容并创建新页面。
           </Text>
         </Alert>
 
         <FileInput
           label="选择文档"
           placeholder="点击或拖拽文件到这里"
-          accept=".pdf,.docx,.md,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          accept=".pdf,.docx,.pptx,.ppt,.md,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-word,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint"
           required
           leftSection={<IconUpload size={16} />}
           {...form.getInputProps('file')}

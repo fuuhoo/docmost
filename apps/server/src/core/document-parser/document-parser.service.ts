@@ -22,6 +22,9 @@ export class DocumentParserService {
       case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
       case 'application/msword':
         return this.parseDocx(file);
+      case 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+      case 'application/vnd.ms-powerpoint':
+        return this.parsePptx(file, mimeType);
       case 'text/markdown':
       case 'text/x-markdown':
       case 'text/plain':
@@ -146,6 +149,152 @@ export class DocumentParserService {
       this.logger.error('Failed to parse Markdown:', error);
       throw new BadRequestException('Failed to parse Markdown document');
     }
+  }
+
+  /**
+   * PPTX/PPT 解析
+   * - 从 ZIP 中提取幻灯片 XML
+   * - 提取文本内容并按幻灯片组织
+   */
+  private async parsePptx(buffer: Buffer, mimeType: string): Promise<ParsedDocument> {
+    try {
+      const yauzl = await import('yauzl');
+      const { parseStringPromise } = await import('xml2js');
+      
+      let fullHtml = '';
+      let slideCount = 0;
+      
+      // 将 buffer 转换为 yauzl 可读取的格式
+      const tempFilePath = `/tmp/pptx-${Date.now()}.pptx`;
+      const fs = await import('fs');
+      fs.writeFileSync(tempFilePath, buffer);
+      
+      await new Promise<void>((resolve, reject) => {
+        yauzl.open(tempFilePath, { lazyEntries: true }, (err, zipfile) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          
+          const slides: Array<{ index: number; text: string }> = [];
+          let processedCount = 0;
+          
+          zipfile.on('entry', (entry) => {
+            // PPTX 中的幻灯片文件路径如: ppt/slides/slide1.xml
+            const slideMatch = entry.fileName.match(/ppt\/slides\/slide(\d+)\.xml$/i);
+            
+            if (slideMatch) {
+              const slideIndex = parseInt(slideMatch[1], 10);
+              
+              zipfile.openReadStream(entry, (err, readStream) => {
+                if (err) {
+                  processedCount++;
+                  zipfile.readEntry();
+                  return;
+                }
+                
+                let xmlData = '';
+                readStream.on('data', (chunk) => {
+                  xmlData += chunk.toString();
+                });
+                
+                readStream.on('end', async () => {
+                  try {
+                    const result = await parseStringPromise(xmlData);
+                    const text = this.extractTextFromPptxXml(result);
+                    slides.push({ index: slideIndex, text });
+                  } catch (e) {
+                    // 忽略解析错误
+                  } finally {
+                    processedCount++;
+                    zipfile.readEntry();
+                  }
+                });
+              });
+            } else {
+              zipfile.readEntry();
+            }
+          });
+          
+          zipfile.on('end', () => {
+            slideCount = slides.length;
+            
+            // 按幻灯片顺序组织 HTML
+            slides.sort((a, b) => a.index - b.index);
+            
+            for (const slide of slides) {
+              if (slide.text.trim()) {
+                fullHtml += `<h2>Slide ${slide.index}</h2>\n`;
+                const paragraphs = slide.text.split('\n').filter(p => p.trim());
+                for (const para of paragraphs) {
+                  fullHtml += `<p>${this.escapeHtml(para.trim())}</p>\n`;
+                }
+                fullHtml += '\n';
+              }
+            }
+            
+            // 清理临时文件
+            fs.unlinkSync(tempFilePath);
+            resolve();
+          });
+          
+          zipfile.on('error', (err) => {
+            fs.unlinkSync(tempFilePath);
+            reject(err);
+          });
+          
+          zipfile.readEntry();
+        });
+      });
+      
+      this.logger.log(`Successfully parsed PPTX with ${slideCount} slides`);
+      
+      return {
+        html: fullHtml,
+        metadata: {
+          pageCount: slideCount,
+        },
+      };
+    } catch (error) {
+      this.logger.error('Failed to parse PPTX:', error);
+      throw new BadRequestException('Failed to parse PowerPoint document');
+    }
+  }
+
+  /**
+   * 从 PPTX XML 中提取文本
+   */
+  private extractTextFromPptxXml(xml: any): string {
+    const texts: string[] = [];
+    
+    const extract = (obj: any): void => {
+      if (!obj || typeof obj !== 'object') return;
+      
+      // PPTX 文本通常在 <a:t> 标签中
+      if (obj['a:t']) {
+        const text = Array.isArray(obj['a:t']) 
+          ? obj['a:t'].join('') 
+          : obj['a:t'];
+        if (text.trim()) {
+          texts.push(text);
+        }
+      }
+      
+      // 递归遍历所有子节点
+      for (const key of Object.keys(obj)) {
+        if (key !== 'a:t') {
+          const value = obj[key];
+          if (Array.isArray(value)) {
+            value.forEach(item => extract(item));
+          } else if (typeof value === 'object' && value !== null) {
+            extract(value);
+          }
+        }
+      }
+    };
+    
+    extract(xml);
+    return texts.join('\n');
   }
 
   /**
