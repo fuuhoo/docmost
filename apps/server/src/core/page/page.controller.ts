@@ -436,6 +436,11 @@ export class PageController {
     const buffer = await file.toBuffer();
     const filename = file.filename;
     const mimetype = file.mimetype;
+    
+    // 从 multipart 字段中提取参数
+    const spaceId = file.fields?.spaceId?.value as string | undefined;
+    const parentPageId = file.fields?.parentPageId?.value as string | undefined;
+    const titleField = file.fields?.title?.value as string | undefined;
 
     // 2. 验证文件类型
     const allowedTypes = [
@@ -463,7 +468,8 @@ export class PageController {
 
     // 5. 提取标题（优先使用用户提供的，否则从文档提取，最后使用文件名）
     const extractedTitle = this.extractTitle(prosemirrorJson);
-    const title = body.title?.trim() || extractedTitle || filename || 'Untitled';
+    const userTitle = titleField ? String(titleField).trim() : '';
+    const title = userTitle || extractedTitle || filename || 'Untitled';
 
     // 6. 生成 Yjs 文档
     const ydoc = TiptapTransformer.toYdoc(
@@ -474,7 +480,7 @@ export class PageController {
     const ydocBuffer = Buffer.from(Y.encodeStateAsUpdate(ydoc));
 
     // 7. 确定目标空间
-    const targetSpaceId = body.spaceId || workspace.defaultSpaceId;
+    const targetSpaceId = spaceId || workspace.defaultSpaceId;
     if (!targetSpaceId) {
       throw new BadRequestException('No target space specified');
     }
@@ -495,7 +501,7 @@ export class PageController {
       lastUpdatedById: user.id,
       spaceId: targetSpaceId,
       workspaceId: workspace.id,
-      parentPageId: body.parentPageId || null,
+      parentPageId: parentPageId || null,
     });
 
     // 10. 上传原始文件作为附件
