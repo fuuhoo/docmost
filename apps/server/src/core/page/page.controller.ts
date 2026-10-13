@@ -45,6 +45,7 @@ import { TiptapTransformer } from '@hocuspocus/transformer';
 import * as Y from 'yjs';
 import { EnvironmentService } from '../../integrations/environment/environment.service';
 import * as bytes from 'bytes';
+import { generateSlugId } from '../../common/helpers';
 
 @UseGuards(JwtAuthGuard)
 @Controller('pages')
@@ -493,6 +494,7 @@ export class PageController {
 
     // 9. 创建页面
     const page = await this.pageRepo.insertPage({
+      slugId: generateSlugId(),
       title,
       content: prosemirrorJson,
       ydoc: ydocBuffer,
