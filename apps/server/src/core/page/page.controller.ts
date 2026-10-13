@@ -44,7 +44,7 @@ import { htmlToJson, jsonToText, tiptapExtensions } from '../../collaboration/co
 import { TiptapTransformer } from '@hocuspocus/transformer';
 import * as Y from 'yjs';
 import { EnvironmentService } from '../../integrations/environment/environment.service';
-import bytes from 'bytes';
+import * as bytes from 'bytes';
 
 @UseGuards(JwtAuthGuard)
 @Controller('pages')
