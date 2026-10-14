@@ -230,7 +230,7 @@ export function SpaceSidebar() {
         onClose={closeImportModal}
         spaceId={space.id}
         onSuccess={(pageId, slugId) => {
-          navigate(`/${space.slug}/p/${slugId}`);
+          navigate(`/s/${space.slug}/p/${slugId}`);
         }}
       />
     </>

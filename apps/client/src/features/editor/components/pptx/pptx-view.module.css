@@ -1,0 +1,17 @@
+.slideContent {
+  padding: var(--mantine-spacing-md);
+  min-height: 400px;
+}
+
+.slideContent h2 {
+  color: var(--mantine-color-dark-7);
+  margin-bottom: var(--mantine-spacing-md);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.slideContent p {
+  margin-bottom: var(--mantine-spacing-sm);
+  line-height: 1.6;
+  color: var(--mantine-color-text);
+}

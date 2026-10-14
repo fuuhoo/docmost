@@ -16,7 +16,7 @@ export default function WordView(props: NodeViewProps) {
   const attrs = node?.attrs || {};
   const { url, name, size } = attrs;
   const { hovered, ref } = useHover();
-  const [showPreview, setShowPreview] = useState(false);
+  const [showPreview, setShowPreview] = useState(true); // 默认展开预览
   const [htmlContent, setHtmlContent] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

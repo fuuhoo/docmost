@@ -7,17 +7,20 @@ import {
   Group,
   Text,
   Alert,
+  Select,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { IconAlertCircle, IconUpload } from '@tabler/icons-react';
-import { createPageFromDocument } from '../services/page-service';
+import { createPageFromDocument, getSidebarPages } from '../services/page-service';
+import { IPage } from '../types/page.types';
 
 interface ImportDocumentModalProps {
   opened: boolean;
   onClose: () => void;
   spaceId?: string;
+  parentPageId?: string | null;
   onSuccess?: (pageId: string, slugId: string) => void;
 }
 
@@ -25,6 +28,7 @@ export function ImportDocumentModal({
   opened,
   onClose,
   spaceId,
+  parentPageId,
   onSuccess,
 }: ImportDocumentModalProps) {
   const [isUploading, setIsUploading] = useState(false);
@@ -33,11 +37,30 @@ export function ImportDocumentModal({
     initialValues: {
       file: null as File | null,
       title: '',
+      parentPageId: parentPageId || '',
     },
     validate: {
       file: (value) => (!value ? '请选择一个文件' : null),
     },
   });
+
+  // 获取空间中的页面列表用于父页面选择
+  const { data: pagesData } = useQuery({
+    queryKey: ['sidebar-pages', spaceId],
+    queryFn: () => getSidebarPages({ spaceId }),
+    enabled: !!spaceId && opened,
+  });
+
+  // 构建页面选项（只显示顶级页面）
+  const pageOptions = [
+    { value: '', label: '无（创建为顶级页面）' },
+    ...(pagesData?.items || [])
+      .filter((page: IPage) => !page.parentPageId)
+      .map((page: IPage) => ({
+        value: page.id,
+        label: page.title || 'Untitled',
+      })),
+  ];
 
   const mutation = useMutation({
     mutationFn: createPageFromDocument,
@@ -69,6 +92,7 @@ export function ImportDocumentModal({
     formData.append('file', values.file);
     if (spaceId) formData.append('spaceId', spaceId);
     if (values.title) formData.append('title', values.title);
+    if (values.parentPageId) formData.append('parentPageId', values.parentPageId);
 
     mutation.mutate(formData);
   };
@@ -89,7 +113,7 @@ export function ImportDocumentModal({
       <form onSubmit={form.onSubmit(handleSubmit)}>
         <Alert icon={<IconAlertCircle size={16} />} color="blue" mb="md">
           <Text size="sm">
-            支持 PDF、Word (.docx)、PowerPoint (.pptx) 和 Markdown (.md) 文件。系统会自动解析文档内容并创建新页面。
+            支持 PDF、Word (.docx)、PowerPoint (.pptx) 和 Markdown (.md) 文件。上传后将在页面中直接预览原始文档。
           </Text>
         </Alert>
 
@@ -107,6 +131,16 @@ export function ImportDocumentModal({
           placeholder="留空则使用文件名"
           mt="md"
           {...form.getInputProps('title')}
+        />
+
+        <Select
+          label="父页面（可选）"
+          placeholder="选择父页面，留空则创建为顶级页面"
+          data={pageOptions}
+          mt="md"
+          searchable
+          clearable
+          {...form.getInputProps('parentPageId')}
         />
 
         <Group justify="flex-end" mt="xl">

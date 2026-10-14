@@ -7,6 +7,7 @@ import { formatBytes } from "@/lib";
 import { useTranslation } from "react-i18next";
 import PdfView from "../pdf/pdf-view";
 import WordView from "../word/word-view";
+import PptxView from "../pptx/pptx-view";
 
 export default function AttachmentView(props: NodeViewProps) {
   const { node } = props;
@@ -22,7 +23,7 @@ export default function AttachmentView(props: NodeViewProps) {
     console.log("AttachmentView - rendering:", { mime, url, name, size });
   }
 
-  // Check if it's a PDF or Word document and render specialized view
+  // Check if it's a PDF, Word, or PowerPoint document and render specialized view
   if (mime === "application/pdf") {
     return <PdfView {...props} />;
   }
@@ -34,7 +35,14 @@ export default function AttachmentView(props: NodeViewProps) {
     return <WordView {...props} />;
   }
 
-  // For other file types (or if mime is missing), use the original simple attachment view
+  if (
+    mime === "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+    mime === "application/vnd.ms-powerpoint"
+  ) {
+    return <PptxView {...props} />;
+  }
+
+  // For other file types, use the simple attachment view
   return <SimpleAttachmentView {...props} />;
 }
 

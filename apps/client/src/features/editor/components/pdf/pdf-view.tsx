@@ -15,7 +15,7 @@ export default function PdfView(props: NodeViewProps) {
   const attrs = node?.attrs || {};
   const { url, name, size } = attrs;
   const { hovered, ref } = useHover();
-  const [showPreview, setShowPreview] = useState(false);
+  const [showPreview, setShowPreview] = useState(true); // 默认展开预览
 
   // Handle missing URL (uploading state)
   if (!url) {

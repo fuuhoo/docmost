@@ -461,44 +461,44 @@ export class PageController {
       );
     }
 
-    // 3. 解析文档
-    const parsed = await this.documentParser.parseDocument(buffer, mimetype);
-
-    // 4. 转换为 ProseMirror JSON
-    const prosemirrorJson = htmlToJson(parsed.html);
-
-    // 5. 提取标题（优先使用用户提供的，否则从文档提取，最后使用文件名）
-    const extractedTitle = this.extractTitle(prosemirrorJson);
-    const userTitle = titleField ? String(titleField).trim() : '';
-    const title = userTitle || extractedTitle || filename || 'Untitled';
-
-    // 6. 生成 Yjs 文档
-    const ydoc = TiptapTransformer.toYdoc(
-      prosemirrorJson,
-      'default',
-      tiptapExtensions,
-    );
-    const ydocBuffer = Buffer.from(Y.encodeStateAsUpdate(ydoc));
-
-    // 7. 确定目标空间
+    // 3. 确定目标空间
     const targetSpaceId = spaceId || workspace.defaultSpaceId;
     if (!targetSpaceId) {
       throw new BadRequestException('No target space specified');
     }
 
-    // 8. 检查权限
+    // 4. 检查权限
     const ability = await this.spaceAbility.createForUser(user, targetSpaceId);
     if (ability.cannot(SpaceCaslAction.Create, SpaceCaslSubject.Page)) {
       throw new ForbiddenException();
     }
 
-    // 9. 创建页面
+    // 5. 提取标题
+    const userTitle = titleField ? String(titleField).trim() : '';
+    const title = userTitle || filename || 'Untitled';
+
+    // 6. 先创建页面（内容为空或简单提示）
+    const emptyContent = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: '文档加载中...',
+            },
+          ],
+        },
+      ],
+    };
+
     const page = await this.pageRepo.insertPage({
       slugId: generateSlugId(),
       title,
-      content: prosemirrorJson,
-      ydoc: ydocBuffer,
-      textContent: jsonToText(prosemirrorJson),
+      content: emptyContent,
+      ydoc: Buffer.from([]), // 临时空 YDoc，稍后更新
+      textContent: '文档加载中...',
       creatorId: user.id,
       lastUpdatedById: user.id,
       spaceId: targetSpaceId,
@@ -506,23 +506,72 @@ export class PageController {
       parentPageId: parentPageId || null,
     });
 
-    // 10. 上传原始文件作为附件
+    // 7. 上传原始文件作为附件
+    let attachmentId: string | null = null;
     try {
-      await this.attachmentService.uploadFile({
-        filePromise: Promise.resolve({
-          filename,
-          mimetype,
-          toBuffer: async () => buffer,
-        } as any),
+      // 创建一个兼容 Fastify MultipartFile 的对象
+      const { Readable } = await import('stream');
+      const mockFile = {
+        filename,
+        mimetype,
+        toBuffer: async () => buffer,
+        file: {
+          pipe: (dest: any) => {
+            const readable = Readable.from(buffer);
+            return readable.pipe(dest);
+          },
+          on: (event: string, handler: any) => {
+            // No-op for mock
+            return this;
+          },
+        },
+      } as any;
+
+      const attachment = await this.attachmentService.uploadFile({
+        filePromise: Promise.resolve(mockFile),
         pageId: page.id,
         userId: user.id,
         spaceId: targetSpaceId,
         workspaceId: workspace.id,
       });
+      attachmentId = attachment.id;
     } catch (error) {
       // 附件上传失败不影响页面创建，只记录日志
       console.error('Failed to attach original file:', error);
+      throw new BadRequestException('Failed to upload file');
     }
+
+    // 8. 更新页面内容为附件引用
+    const attachmentContent = {
+      type: 'doc',
+      content: [
+        {
+          type: 'attachment',
+          attrs: {
+            url: `/api/files/${attachmentId}/${filename}`,
+            name: filename,
+            mime: mimetype,
+            size: buffer.length,
+            attachmentId: attachmentId,
+          },
+        },
+      ],
+    };
+
+    // 生成新的 YDoc
+    const ydoc = TiptapTransformer.toYdoc(
+      attachmentContent,
+      'default',
+      tiptapExtensions,
+    );
+    const ydocBuffer = Buffer.from(Y.encodeStateAsUpdate(ydoc));
+
+    // 更新页面
+    await this.pageRepo.updatePage({
+      content: attachmentContent,
+      ydoc: ydocBuffer,
+      textContent: filename,
+    }, page.id);
 
     return {
       pageId: page.id,
